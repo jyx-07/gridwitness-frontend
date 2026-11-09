@@ -9,9 +9,13 @@ if not exist "..\gridwitness-api\app\main.py" (
   exit /b 1
 )
 start "GridWitness 백엔드" cmd /k "cd /d "%~dp0..\gridwitness-api" && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
-if not exist "dist\index.html" (
-  echo 웹 화면을 처음 한 번 빌드합니다...
-  call npm run build
+rem 코드가 바뀌었을 수 있으니 매번 새로 빌드한다 (인터넷 없이 몇 초면 끝남)
+echo 웹 화면을 빌드합니다...
+call npm run build
+if errorlevel 1 (
+  echo [오류] 빌드 실패. 위 메시지를 확인하세요
+  pause
+  exit /b 1
 )
 start "GridWitness 웹" cmd /k "set GW_API_TARGET=http://127.0.0.1:8000&& npx vite preview --port 4173 --strictPort"
 echo 백엔드가 AI 모델을 불러오는 동안 기다립니다...
