@@ -7,7 +7,7 @@ import { CatmullRomCurve3, Vector3, type Group, type Mesh } from 'three'
 import { IOT_CHANNELS, lightView, speech, type ChannelId, type NodeStatus, type VillageSnapshot } from '../../lib/village'
 import House from './House'
 import { BOX_FLOOR, HOUSE_POS, LAMP_POS, POLES, routePoints, type HouseChannel, type LampChannel } from './layout'
-import { Pole, STATUS_COLOR, StreetLamp, Substation } from './Props'
+import { Pole, STATUS_COLOR, StreetLamp } from './Props'
 import Terrain, { WiringBox } from './Terrain'
 import { skyGradient } from './textures'
 import Trees from './Trees'
@@ -179,12 +179,11 @@ function Lift({ away, children }: { away: boolean; children: React.ReactNode }) 
   return <group ref={ref}>{children}</group>
 }
 
-const Static = memo(function Static({ status }: { status: NodeStatus }) {
+const Static = memo(function Static() {
   return (
     <>
       <Terrain />
       <Trees />
-      <Substation status={status} />
       {POLES.map((p, k) => <Pole key={k} p={p} transformer={k === 2} />)}
     </>
   )
@@ -237,7 +236,7 @@ export default function VillageScene({
         {night && <Stars radius={80} depth={30} count={1500} factor={3} fade speed={0} />}
 
         <Lift away={underground}>
-          <Static status={snap.status} />
+          <Static />
           {IOT_CHANNELS.map((c) => {
             const view = lightView(snap.leds[c.id], snap)
             return <Feeder key={c.id} id={c.id} status={view.status} flowing={snap.leds[c.id].lit} night={night} />
