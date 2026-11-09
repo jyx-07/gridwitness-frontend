@@ -7,7 +7,7 @@ import { CatmullRomCurve3, Vector3, type Group, type Mesh } from 'three'
 import { IOT_CHANNELS, lightView, speech, type ChannelId, type NodeStatus, type VillageSnapshot } from '../../lib/village'
 import House from './House'
 import { BOX_FLOOR, HOUSE_POS, LAMP_POS, POLES, routePoints, type HouseChannel, type LampChannel } from './layout'
-import { Pole, STATUS_COLOR, StreetLamp } from './Props'
+import { Pole, STATUS_COLOR, StreetLamp, Terminal } from './Props'
 import Terrain, { WiringBox } from './Terrain'
 import { skyGradient } from './textures'
 import Trees from './Trees'
@@ -197,6 +197,8 @@ export default function VillageScene({
   fx = false,
   underground = false,
   selectedPart = null,
+  terminalSelected = false,
+  onTerminal,
   onPart = () => {},
   showPins = false,
 }: {
@@ -209,6 +211,8 @@ export default function VillageScene({
   /** 바닥판 내부 배선 보기 */
   underground?: boolean
   selectedPart?: PartId | null
+  terminalSelected?: boolean
+  onTerminal?: () => void
   onPart?: (id: PartId | null) => void
   showPins?: boolean
 }) {
@@ -249,6 +253,7 @@ export default function VillageScene({
               <StreetLamp key={c.id} c={snap.leds[c.id]} view={view} speech={speech(snap.leds[c.id], snap)} {...LAMP_POS[c.id as LampChannel]} night={night} selected={selected === c.id} onSelect={() => onSelect(c.id)} />
             )
           })}
+          {onTerminal && <Terminal p={POLES[1]} status={snap.status} selected={terminalSelected} onSelect={onTerminal} />}
         </Lift>
         <WiringBox open={underground} />
         {underground && <Underground snap={snap} night={night} selectedPart={selectedPart} onPart={onPart} showPins={showPins} />}

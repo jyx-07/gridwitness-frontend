@@ -123,3 +123,35 @@ export function StreetLamp({ c, view, pos, rot, night, selected, onSelect, showL
     </group>
   )
 }
+
+// ── 단말장치 (FRTU 역할) ─────────────────────────────────
+// 실제 FRTU 는 개폐기 옆 전주에 달린 함. 이 모형에서는 우노가 같은 일(계측, 고장 감지, 고장파형 저장)을 한다
+export function Terminal({ p, status, selected, onSelect }: { p: V3; status: NodeStatus; selected: boolean; onSelect: () => void }) {
+  return (
+    <group
+      position={p}
+      onClick={(e) => {
+        e.stopPropagation()
+        onSelect()
+      }}
+      onPointerOver={() => (document.body.style.cursor = 'pointer')}
+      onPointerOut={() => (document.body.style.cursor = '')}
+    >
+      <mesh position={[0, 1.85, 0.28]} castShadow>
+        <boxGeometry args={[0.85, 1.05, 0.42]} />
+        <meshStandardMaterial color="#d7dde3" metalness={0.3} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 2.12, 0.495]}>
+        <planeGeometry args={[0.18, 0.18]} />
+        <meshStandardMaterial color={STATUS_COLOR[status]} emissive={STATUS_COLOR[status]} emissiveIntensity={1.6} toneMapped={false} />
+      </mesh>
+      {selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
+          <ringGeometry args={[0.55, 0.7, 40]} />
+          <meshBasicMaterial color="#4dabf7" />
+        </mesh>
+      )}
+      <Label lines={['단말장치', 'FRTU 역할 · 클릭']} position={[0, 2.85, 0.28]} bg="rgba(20,22,27,0.86)" border="rgba(255,255,255,0.14)" pointer lineHeight={0.4} />
+    </group>
+  )
+}

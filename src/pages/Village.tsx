@@ -6,6 +6,7 @@ import EventList from '../components/EventList'
 import { IconMoon, IconPower, IconSun, IconX } from '../components/Icons'
 import PartPanel from '../components/PartPanel'
 import SceneBoundary from '../components/SceneBoundary'
+import TerminalPanel from '../components/TerminalPanel'
 import Sparkline from '../components/Sparkline'
 import { Badge, NODE_TONE, PageHeader, Section, Segmented, Status } from '../components/ui'
 import VillageScene from '../components/village/VillageScene'
@@ -99,6 +100,8 @@ export default function Village() {
   const [underground, setUnderground] = useState(false)
   const [part, setPart] = useState<PartId | null>(null)
   const [showPins, setShowPins] = useState(false)
+  // ?terminal=1 이면 단말장치 패널을 바로 연다 (시연·확인용)
+  const [terminal, setTerminal] = useState(() => new URLSearchParams(window.location.search).has('terminal'))
   const sel = selected ? snap.leds[selected] : null
   const selView = sel ? lightView(sel, snap) : null
   const mock = snap.source === 'MOCK'
@@ -124,7 +127,25 @@ export default function Village() {
       <div className="scene" style={{ marginTop: 16 }}>
         <div className="scene-canvas">
           <SceneBoundary>
-            <VillageScene snap={snap} selected={selected} onSelect={setSelected} night={night} fx={fx} underground={underground} selectedPart={part} onPart={setPart} showPins={showPins} />
+            <VillageScene
+              snap={snap}
+              selected={selected}
+              onSelect={(id) => {
+                setSelected(id)
+                setTerminal(false)
+              }}
+              terminalSelected={terminal}
+              onTerminal={() => {
+                setTerminal(true)
+                setSelected(null)
+              }}
+              night={night}
+              fx={fx}
+              underground={underground}
+              selectedPart={part}
+              onPart={setPart}
+              showPins={showPins}
+            />
           </SceneBoundary>
         </div>
         <div className="scene-tools">
@@ -204,6 +225,7 @@ export default function Village() {
         {!underground && <div className="scene-hint glass">드래그 회전 · 휠 확대 · 객체 클릭</div>}
 
         {underground && part && <PartPanel id={part} snap={snap} onClose={() => setPart(null)} />}
+        {terminal && !underground && <TerminalPanel snap={snap} onClose={() => setTerminal(false)} />}
         {sel && selView && !underground && (
           <div className="scene-pop" role="dialog" aria-label={`${sel.name} 상세`}>
             <div className="scene-pop-head">
