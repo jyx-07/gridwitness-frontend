@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
-import { IconAnalysis, IconDashboard, IconShieldCheck, IconDatabase, IconLive, IconLogo, IconMenu, IconBolt, IconSettings, IconVillage } from './components/Icons'
+import { IconAnalysis, IconDashboard, IconShieldCheck, IconDatabase, IconLive, IconLogo, IconMenu, IconSettings, IconVillage } from './components/Icons'
 import { Dot, PageSkeleton } from './components/ui'
 import { useActor } from './lib/actor'
 import { useBackendHealth } from './lib/backend'
@@ -16,8 +16,6 @@ import Settings from './pages/Settings'
 import VillageLoads from './pages/VillageLoads'
 
 const Village = lazy(() => import('./pages/Village'))
-const City = lazy(() => import('./pages/City'))
-const Complex = lazy(() => import('./pages/Complex'))
 
 const NAV: { label: string; items: { to: string; label: string; icon: ReactNode; end?: boolean }[] }[] = [
   {
@@ -26,8 +24,6 @@ const NAV: { label: string; items: { to: string; label: string; icon: ReactNode;
       { to: '/dashboard', label: '개요', icon: <IconDashboard /> },
       { to: '/village', label: '스마트 마을', icon: <IconVillage /> },
       { to: '/live', label: '실시간 분석', icon: <IconLive /> },
-      { to: '/complex', label: '가상 대단지', icon: <IconVillage /> },
-      { to: '/city', label: '도시 시뮬레이션', icon: <IconBolt /> },
     ],
   },
   {
@@ -114,7 +110,7 @@ export function Shell({ extraRoutes }: { extraRoutes?: ReactNode } = {}) {
   const [navOpen, setNavOpen] = useState(false)
   const location = useLocation()
   useEffect(() => setNavOpen(false), [location.pathname])
-  const wide = location.pathname === '/village' || location.pathname === '/city'
+  const wide = location.pathname === '/village'
 
   return (
     <div className={`app ${navOpen ? 'nav-open' : ''}`}>
@@ -160,8 +156,6 @@ export function Shell({ extraRoutes }: { extraRoutes?: ReactNode } = {}) {
               <Route path="/village" element={<Village />} />
               <Route path="/village/loads" element={<VillageLoads />} />
               <Route path="/live" element={<LiveData />} />
-              <Route path="/city" element={<City />} />
-              <Route path="/complex" element={<Complex />} />
               <Route path="/cases" element={<CaseList />} />
               <Route path="/cases/new" element={<NewCase />} />
               <Route path="/cases/:id" element={<CaseDetail />} />
@@ -169,6 +163,9 @@ export function Shell({ extraRoutes }: { extraRoutes?: ReactNode } = {}) {
               <Route path="/history" element={<Navigate to="/cases" replace />} />
               <Route path="/history/:id" element={<HistoryRedirect />} />
               <Route path="/settings" element={<Settings />} />
+              {/* 지운 화면(가상 대단지·도시 시뮬레이션)의 예전 주소 */}
+              <Route path="/complex" element={<Navigate to="/village" replace />} />
+              <Route path="/city" element={<Navigate to="/village" replace />} />
             </Routes>
           </Suspense>
         </main>

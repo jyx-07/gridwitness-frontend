@@ -276,7 +276,7 @@ function comboJudge(key: string, i: number): { expected: number; score: number; 
   const sd = COMBO.sigma_a[key]
   if (mu == null || sd == null) return null
   const z = (i - mu) / sd
-  // 대단지 세대 판정과 같은 규칙 (deviation.ts)
+  // 판정 규칙 (deviation.ts)
   const dv = deviation(i, mu, { sigma: sd, k: COMBO.k_sigma, tol: COMBO_TOL_A })
   const score = dv.score
   if (dv.ratio <= 1) return { expected: mu, score, diag: null }
