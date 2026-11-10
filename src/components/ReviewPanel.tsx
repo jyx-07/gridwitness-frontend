@@ -1,46 +1,18 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { api } from '../api'
-import { fmtTime, getActor } from '../lib/actor'
-import { approvalLog, approvalStatus, noteReviewAdded, useApprovals } from '../lib/approval'
-import ApprovalPanel from './ApprovalPanel'
+import type { ReactNode } from 'react'
+import { fmtTime } from '../lib/actor'
+import { approvalLog, approvalStatus, useApprovals } from '../lib/approval'
+import ReviewFlow from './ApprovalPanel'
 import { VERDICT_LABEL, type AnyCase, type Review } from '../types'
-import { Badge, Section, Segmented } from './ui'
+import { Badge, Section } from './ui'
 
 const VERDICT_TONE: Record<Review['verdict'], 'ok' | 'warn' | 'accent'> = { AGREE: 'ok', DISAGREE: 'warn', NEEDS_INVESTIGATION: 'accent' }
 
-/** 사람 검토 — AI 출력과 사람 판단을 분리해 기록 (사건 유형 공통) */
+/** 사람 검토 — 위에는 AI 결과 / 담당자 판단 / 확정 원인을 나란히, 아래에서 검토·승인을 단계대로 진행 (사건 유형 공통) */
 export default function ReviewPanel({ c, aiSummary, onChange, locked }: { c: AnyCase; aiSummary: ReactNode; onChange: (c: AnyCase) => void; /** 검토를 막는 이유 */ locked?: ReactNode }) {
-  const [verdict, setVerdict] = useState<Review['verdict']>('AGREE')
-  const [finalJudgment, setFinal] = useState('')
-  const [additionalInvestigation, setInv] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
   const latest = c.reviews[c.reviews.length - 1]
   const approvals = useApprovals()
-  // 확정된 사건은 검토를 더 받지 않음 (재검토 요청으로 다시 열어야 함)
-  const lockedByApproval = approvalStatus(c, approvalLog(approvals, c.id)) === 'APPROVED'
-    ? '최종 승인으로 확정된 사건이라 검토를 추가할 수 없어요. 고쳐야 하면 아래 최종 승인에서 재검토를 요청해 주세요.'
-    : null
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    try {
-      const reviewer = getActor()
-      onChange(await api.submitReview(c.id, { reviewer, verdict, finalJudgment, additionalInvestigation }))
-      noteReviewAdded(c.id, reviewer)
-      setFinal('')
-      setInv('')
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2400)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const log = approvalLog(approvals, c.id)
+  const approved = approvalStatus(c, log) === 'APPROVED' ? log[log.length - 1] : null
 
   return (
     <>
@@ -50,52 +22,31 @@ export default function ReviewPanel({ c, aiSummary, onChange, locked }: { c: Any
           {aiSummary}
         </div>
         <div>
-          <h3>검토 의견 {c.reviews.length > 0 && <span className="count">{c.reviews.length}</span>}</h3>
-          {c.reviews.length === 0 && <span className="muted">아직 없음</span>}
-          {c.reviews.map((r) => (
-            <div key={r.reviewedAt} className="review-item">
-              <Badge tone={VERDICT_TONE[r.verdict]}>{VERDICT_LABEL[r.verdict]}</Badge>
-              <div className="xs muted num" style={{ marginTop: 4 }}>{r.reviewer} · {fmtTime(r.reviewedAt)}</div>
-              {r.additionalInvestigation && <div className="small" style={{ marginTop: 2 }}>추가 조사: {r.additionalInvestigation}</div>}
-            </div>
-          ))}
+          <h3>담당자 판단</h3>
+          {latest ? (
+            <>
+              <Badge tone={VERDICT_TONE[latest.verdict]}>{VERDICT_LABEL[latest.verdict]}</Badge>
+              <div style={{ marginTop: 6 }}>{latest.finalJudgment || <span className="muted">—</span>}</div>
+              <div className="xs muted num" style={{ marginTop: 4 }}>{latest.reviewer} · {fmtTime(latest.reviewedAt)}</div>
+            </>
+          ) : (
+            <span className="muted">아직 검토 전</span>
+          )}
         </div>
         <div>
-          <h3>최종 판단 · 사람</h3>
-          {latest?.finalJudgment ? <span>{latest.finalJudgment}</span> : <span className="muted">아직 없음</span>}
-          <div className="xs muted" style={{ marginTop: 4 }}>최종 승인 전에는 확정이 아니에요</div>
+          <h3>확정 원인</h3>
+          {approved ? (
+            <>
+              <strong>{approved.finalCause}</strong>
+              <div className="xs muted num" style={{ marginTop: 4 }}>승인 {approved.by} · {fmtTime(approved.at)}</div>
+            </>
+          ) : (
+            <span className="muted">아직 확정 안 됨 · 최종 승인 필요</span>
+          )}
         </div>
       </div>
 
-      {locked || lockedByApproval ? (
-        <Section title="검토 기록 추가">
-          <div className="alert alert-warn" style={{ margin: 0 }}><span>{locked ?? lockedByApproval}</span></div>
-        </Section>
-      ) : (
-        <Section title="검토 기록 추가" description="AI 결과는 바뀌지 않고, 사람의 판단이 별도로 쌓입니다.">
-          <form className="form no-print" onSubmit={submit} style={{ maxWidth: 640 }}>
-            <div className="field">
-              AI 결과에 대한 판단
-              <Segmented value={verdict} onChange={setVerdict} options={(Object.keys(VERDICT_LABEL) as Review['verdict'][]).map((v) => ({ value: v, label: VERDICT_LABEL[v] }))} />
-            </div>
-            <label className="field">
-              최종 판단
-              <textarea rows={2} value={finalJudgment} onChange={(e) => setFinal(e.target.value)} placeholder="AI 결과와 별개로 담당자가 내린 판단" />
-            </label>
-            <label className="field">
-              추가 조사 <span className="field-hint">현장 조사, 설비 이력 확인 등</span>
-              <textarea rows={2} value={additionalInvestigation} onChange={(e) => setInv(e.target.value)} />
-            </label>
-            {error && <div className="alert alert-err">{error}</div>}
-            <div className="row gap">
-              <button className="btn btn-primary" disabled={busy}>{busy ? '저장 중…' : '검토 저장'}</button>
-              {saved && <span className="small" style={{ color: 'var(--ok)' }} role="status">저장했습니다</span>}
-            </div>
-          </form>
-        </Section>
-      )}
-
-      <ApprovalPanel c={c} />
+      <ReviewFlow c={c} onChange={onChange} locked={locked} />
 
       <Section title="실행 이력" description="원본 등록부터 검토까지 이 사건에서 일어난 일">
         <ol className="timeline">
