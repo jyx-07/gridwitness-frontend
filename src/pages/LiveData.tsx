@@ -77,7 +77,7 @@ export function LiveAnalysis({ compact = false }: { compact?: boolean }) {
     return (
       <div className="live">
         <DeviceConnectCard real={real} reconnecting={snap.reconnecting} />
-        <HardwareFlow />
+        {!compact && <HardwareFlow />}
       </div>
     )
 
