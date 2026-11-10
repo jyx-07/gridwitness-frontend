@@ -4,6 +4,7 @@ import { analyzeWaveform, fmtCurrent, fmtPct } from '../lib/faultAnalysis'
 import { CHART } from '../lib/chart'
 import { ANALYSIS_LABEL, channelsFor, type AnalysisResult, type AnalysisType, type EventLabel, type EventScores } from '../types'
 import AiEvidence from './AiEvidence'
+import { AiFlow, Src } from './AiExplain'
 import { IconBars, IconWave } from './Icons'
 import { Segmented, Skeleton } from './ui'
 
@@ -31,7 +32,7 @@ interface Props {
 }
 
 /** 한 종류의 파형(전압·전류·영상전류)을 그리는 칸 */
-function Strip({ title, unit, keys, colors, data, onset, recovery, height, first, last }: { title: string; unit: string; keys: string[]; colors: string[]; data: Record<string, number>[]; onset: number | null; recovery: number | null; height: number; first?: boolean; last?: boolean }) {
+export function Strip({ title, unit, keys, colors, data, onset, recovery, height, first, last }: { title: string; unit: string; keys: string[]; colors: string[]; data: Record<string, number | null>[]; onset: number | null; recovery: number | null; height: number; first?: boolean; last?: boolean }) {
   return (
     <div className="fa-strip">
       <div className="fa-strip-head">
@@ -67,7 +68,7 @@ function Strip({ title, unit, keys, colors, data, onset, recovery, height, first
   )
 }
 
-function Evidence({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+export function Evidence({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="fa-ev">
       <div className="fa-ev-label">{icon}{label}</div>
@@ -141,10 +142,13 @@ export default function FaultAnalysis({ matrix, fs, hz, analysis, blocked, busy,
       </div>
 
       <aside className="fa-side">
+        {/* AI 판단 흐름: 입력 검증 → 모델 선택 → 판단 기준 → 결과 */}
+        {!compact && <AiFlow analysis={analysis} blocked={blocked} />}
         {/* AI 결과 */}
         <div className="fa-card">
           <div className="fa-card-head">
             <strong>AI 분석 결과</strong>
+            <Src kind="model" />
             {analysis?.kind === 'COMPLETED' && <span className="badge accent">예측 결과</span>}
             {analysis?.kind === 'WITHHELD' && <span className="badge warn">판단 보류</span>}
           </div>
@@ -211,7 +215,7 @@ export default function FaultAnalysis({ matrix, fs, hz, analysis, blocked, busy,
         <div className="fa-card">
           <div className="fa-card-head">
             <strong>파형 요약</strong>
-            <span className="small muted">화면에서 직접 계산 · AI 판단과 별개</span>
+            <Src kind="calc" />
           </div>
           {!features.onset ? (
             <p className="small muted">기록 안에서 뚜렷한 급변을 찾지 못했습니다. 기록 시작 전 이상 여부와 회복은 확인하지 못했습니다.</p>

@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../api'
 import { FaultLocationBox, FrtuStrip } from '../components/AiPanel'
 import { IconAlert, IconArrowRight, IconBrain, IconInbox, IconLive, IconVillage, IconWave } from '../components/Icons'
 import { Badge, ErrorState, TableSkeleton, type Tone } from '../components/ui'
-import { CHART } from '../lib/chart'
 import { frtuViews, locateFault } from '../lib/frtu'
 import { askAssistantAbout } from '../lib/panels'
 import { API_CHANGED_EVENT } from '../lib/backend'
-import { openIncident, STAGE_LABEL, useLiveIncidents } from '../lib/liveIncident'
+import { STAGE_LABEL, useLiveIncidents } from '../lib/liveIncident'
+import { formatModelScore } from '../lib/modelScore'
 import { STATUS_LABEL, useVillage } from '../lib/village'
-import { useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
+import { EVENT_MODEL, useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
+import { loadModelCard, type ModelCard } from '../lib/aiExplain'
 import type { AnyCase, CaseStage, CaseSummary } from '../types'
 import { DeviceConnectCard } from './LiveData'
 import { KEPCO_OUTAGE_2025, KEPCO_OUTAGE_SOURCE, loadRegion, outageTotals, saveRegion } from '../data/kepcoOutage'
@@ -47,10 +47,47 @@ function Kpi({ label, value, chip, icon, primary, onClick }: { label: string; va
   )
 }
 
+/** 대시보드에서 바로 보는 AI 신뢰도: 학습에 쓰지 않은 시험 결과 요약. 자세한 내용은 성능 검증 화면 */
+function ValidationCard() {
+  const [card, setCard] = useState<ModelCard | null>(null)
+  useEffect(() => {
+    loadModelCard().then(setCard, () => setCard(null))
+  }, [])
+  const vm = (EVENT_MODEL as unknown as { metrics?: { n_test: number; test_all: { accuracy: number }; test_selective: { abstained: number } } }).metrics
+  const cn = card?.test_selective
+  const pct = (x: number) => `${(x * 100).toFixed(1)}%`
+  return (
+    <section className="dash-card">
+      <div className="dash-card-head">
+        <h2>AI 성능 검증</h2>
+        <Link to="/validation" className="pill-link">자세히 <IconArrowRight /></Link>
+      </div>
+      <div className="dash-val">
+        <div>
+          <span>고장파형 AI</span>
+          <b className="num">{cn ? pct(cn.selective_accuracy) : '—'}</b>
+          <small>{cn ? `답한 ${cn.n - cn.abstained}건 기준` : '불러오는 중'}</small>
+        </div>
+        <div>
+          <span>마을 사건 AI</span>
+          <b className="num">{vm ? pct(vm.test_all.accuracy) : '—'}</b>
+          <small>{vm ? `시험 ${vm.n_test}건` : '평가 자료 없음'}</small>
+        </div>
+        <div>
+          <span>모르면 보류</span>
+          <b className="num">{cn && vm ? `${cn.abstained + vm.test_selective.abstained}건` : '—'}</b>
+          <small>확신 없으면 답하지 않음</small>
+        </div>
+      </div>
+      <p className="xs muted" style={{ margin: '8px 2px 0' }}>학습에 쓰지 않은 시험 데이터 기준 · 공개 파형과 모형 실측</p>
+    </section>
+  )
+}
+
 function verdictOf(a: AnalyzedEvent): { tone: Tone; text: string; score: string } {
   const v = a.verdict
-  if (v.kind === 'ANSWERED') return { tone: v.isFault ? 'err' : 'ok', text: v.labelKo, score: `${Math.round(v.score * 100)}%` }
-  if (v.kind === 'WITHHELD') return { tone: 'warn', text: `보류 (1순위 ${v.labelKo})`, score: `${Math.round(v.score * 100)}%` }
+  if (v.kind === 'ANSWERED') return { tone: v.isFault ? 'err' : 'ok', text: v.labelKo, score: formatModelScore(v.score) }
+  if (v.kind === 'WITHHELD') return { tone: 'warn', text: `보류 (1순위 ${v.labelKo})`, score: formatModelScore(v.score) }
   if (v.kind === 'NO_MODEL') return { tone: 'off', text: '모델 학습 전', score: '—' }
   return { tone: 'err', text: '입력 거부', score: '—' }
 }
@@ -102,6 +139,7 @@ function ResponseCard({ cases, full, now }: { cases: CaseSummary[]; full: AnyCas
 /** 오늘 생긴 실시간 사건 (발생 → 처리 단계 → 복구) */
 function TodayIncidents() {
   const { incidents } = useLiveIncidents()
+  const nav = useNavigate()
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   const today = incidents.filter((x) => x.startedAt >= start.getTime())
@@ -118,7 +156,7 @@ function TodayIncidents() {
           {today.slice(0, 6).map((x) => (
             <li key={x.id} className={x.clearedAt ? '' : 'live'}>
               <span className="today-time num">{new Date(x.startedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-              <button type="button" className="today-main" onClick={() => openIncident(x.id)}>
+              <button type="button" className="today-main" onClick={() => nav(`/incidents/${x.recordId}`)}>
                 <strong>{x.title.split(' (')[0]}</strong>
                 <span>{x.clearedAt ? `${Math.round((x.clearedAt - x.startedAt) / 1000)}초 만에 복구` : '진행 중'} · {x.assignee ?? '담당자 미지정'}</span>
               </button>
@@ -204,8 +242,6 @@ export default function Dashboard() {
   const fiCount = Object.values(fv).filter((f) => f.fi !== 'NONE').length
   const loc = locateFault(snap, fv)
   const live = snap.connected && snap.status !== 'NO_DATA'
-  const t0 = snap.history.length ? snap.history[snap.history.length - 1].t : 0
-  const data = snap.history.map((h) => ({ t: (h.t - t0) / 1000, mA: h.i * 1000, house: h.ih != null ? h.ih * 1000 : null, lamp: h.il != null ? h.il * 1000 : null }))
 
   // AI 판정과 규칙 기반 이상을 한 표에 시간순으로
   const rows = [
@@ -242,7 +278,7 @@ export default function Dashboard() {
         <section className="dash-card">
           <div className="dash-card-head">
             <h2>마을 FRTU</h2>
-            <Link to="/frtu" className="pill-link">FRTU 상세 <IconArrowRight /></Link>
+            <Link to="/frtu" className="pill-link">FRTU 파형 분석 <IconArrowRight /></Link>
           </div>
           {!live ? (
             <DeviceConnectCard real={snap.source === 'SERIAL'} reconnecting={snap.reconnecting} />
@@ -250,18 +286,6 @@ export default function Dashboard() {
             <div className="dash-sub">
               <FrtuStrip snap={snap} value="inlet" onPick={(id) => nav(`/frtu${id === 'inlet' ? '' : `?id=${id}`}`)} />
               <FaultLocationBox snap={snap} />
-              <span>실시간 전류 · 인입 / 주택 분기 / 가로등 분기</span>
-              <ResponsiveContainer width="100%" height={120}>
-                <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke={CHART.grid} vertical={false} />
-                  <XAxis dataKey="t" type="number" domain={['dataMin', 0]} tick={CHART.tick} axisLine={false} tickLine={false} unit="s" />
-                  <YAxis tick={CHART.tick} axisLine={false} tickLine={false} width={40} domain={['auto', 'auto']} />
-                  <Tooltip formatter={(x) => (typeof x === 'number' ? `${x.toFixed(1)} mA` : x)} labelFormatter={(t) => `${Number(t).toFixed(1)} s`} />
-                  <Line dataKey="mA" name="인입" stroke="#2f6bff" dot={false} strokeWidth={1.8} isAnimationActive={false} />
-                  <Line dataKey="house" name="주택 분기" stroke="#e08a1e" dot={false} strokeWidth={1.4} isAnimationActive={false} connectNulls />
-                  <Line dataKey="lamp" name="가로등 분기" stroke="#24835a" dot={false} strokeWidth={1.4} isAnimationActive={false} connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
             </div>
           )}
 
@@ -274,7 +298,7 @@ export default function Dashboard() {
             <p className="muted small" style={{ margin: '4px 2px' }}>아직 판정한 마을 사건이 없어요.</p>
           ) : (
             <table className="dash-table">
-              <thead><tr><th>사건</th><th>판정</th><th>판정 주체</th><th className="num">점수</th><th className="num">시각</th></tr></thead>
+              <thead><tr><th>사건</th><th>판정</th><th>판정 주체</th><th className="num">점수 (확률 아님)</th><th className="num">시각</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.key} className="clickable" onClick={() => nav('/frtu')}>
@@ -291,6 +315,7 @@ export default function Dashboard() {
         </section>
 
         <div className="stack" style={{ gap: 14 }}>
+          <ValidationCard />
           <RegionOutageCard />
           {cases && !error && <ResponseCard cases={cases} full={full} now={now} />}
 

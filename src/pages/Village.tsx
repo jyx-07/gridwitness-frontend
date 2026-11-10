@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AiPanel from '../components/AiPanel'
 import Channels from '../components/Channels'
 import EventList from '../components/EventList'
@@ -9,6 +9,7 @@ import SceneBoundary from '../components/SceneBoundary'
 import Sparkline from '../components/Sparkline'
 import { Badge, NODE_TONE, Section, Segmented, Status } from '../components/ui'
 import VillageScene from '../components/village/VillageScene'
+import { LiveFrtuWaveAnalysis } from '../components/FrtuWaveAnalysis'
 import { isFrtuId, type FrtuId } from '../lib/frtu'
 import { announcePanelOpen, ASSISTANT_OPEN_EVENT, INCIDENT_OPEN_EVENT } from '../lib/panels'
 import { NET_COLOR, NET_KIND_LABEL, type NetKind, type PartId } from '../lib/hardware'
@@ -16,7 +17,7 @@ import {
   clearFault,
   FAULT_AT_LED,
   FAULT_LABEL,
-  injectFault,
+  injectFault, injectTransient,
   IOT_CHANNELS,
   lightView,
   setChannel,
@@ -104,6 +105,7 @@ export default function Village() {
   const [params] = useSearchParams()
   const [frtu, setFrtu] = useState<FrtuId | null>(() => (isFrtuId(params.get('frtu')) ? (params.get('frtu') as FrtuId) : params.get('ai') === '1' ? 'inlet' : null))
   const [controls, setControls] = useState(false)
+  const nav = useNavigate()
   // AI 도우미가 열리면 화면의 카드 패널(FRTU 요약·제어판·LED 상세)은 내려감
   useEffect(() => {
     const onAssistant = () => {
@@ -305,6 +307,7 @@ export default function Village() {
                   {FAULT_LABEL[k]}
                 </button>
               ))}
+              <button className="btn" onClick={() => injectTransient(target)} disabled={!mock} title="1.5초 동안 전류가 튀었다가 저절로 돌아와요. 고장표시가 떠도 실제 고장은 아니에요 (FI 오표시 시연)">순간 과전류 (돌입)</button>
               <button className="btn btn-ghost" onClick={() => clearFault(target)} disabled={!mock || !snap.faults[target]}>이 LED 복구</button>
             </div>
           </div>
@@ -328,6 +331,10 @@ export default function Village() {
           </div>
         </div>
       </Section>
+
+          <Section title="FRTU 파형 분석" actions={<button type="button" className="btn btn-sm" onClick={() => nav('/frtu')}>크게 보기</button>}>
+            <LiveFrtuWaveAnalysis stacked compact />
+          </Section>
 
           <Section title="이상 이벤트" actions={<Link to="/village/loads" className="small">부하(LED 5개) 현황 →</Link>}>
             <EventList events={snap.events} limit={4} />

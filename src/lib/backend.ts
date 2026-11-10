@@ -4,8 +4,8 @@ import { useSyncExternalStore } from 'react'
 
 // 실제 서버 주소.
 // - Vite 개발 서버(vite.config.ts)와 Vercel(vercel.json)은 같은 출처의 /gw-api 를 이 주소로 프록시한다
-// - GitHub Pages 는 정적 호스팅이라 프록시가 없다 (/gw-api → 404). 대신 서버 CORS 가 https://jyx-07.github.io 를
-//   허용하므로(gridwitness-api app/main.py) 서버 주소로 바로 요청한다
+// - GitHub Pages 는 정적 호스팅이라 프록시가 없다 (/gw-api → 404). 현재 ParksKin Pages 출처는 API CORS에
+//   등록되어 있으므로 서버 주소로 바로 요청한다.
 export const UPSTREAM_API = 'https://gridwitness-api.https.gsmsv.site'
 const PROXY_API = '/gw-api'
 /** 프록시가 없는 정적 호스팅(GitHub Pages)에서 열렸는지 */
@@ -53,13 +53,17 @@ export function setApiBase(url: string) {
 
 const tokenKey = () => `gridwitness.api.token.${encodeURIComponent(apiBase())}`
 export function getApiToken(): string {
-  try { return sessionStorage.getItem(tokenKey()) ?? tokens.get(apiBase()) ?? '' } catch { return tokens.get(apiBase()) ?? '' }
+  // 이 탭(세션) → 이 브라우저에 기억한 코드 → 메모리 순서
+  try { return sessionStorage.getItem(tokenKey()) ?? localStorage.getItem(tokenKey()) ?? tokens.get(apiBase()) ?? '' } catch { return tokens.get(apiBase()) ?? '' }
 }
-export function setApiToken(token: string) {
+/** remember=true면 이 브라우저에 남겨 새 탭에서도 다시 넣지 않아도 됨 (시연 PC용) */
+export function setApiToken(token: string, remember = false) {
   tokens.set(apiBase(), token.trim())
   try {
     if (token.trim()) sessionStorage.setItem(tokenKey(), token.trim())
     else sessionStorage.removeItem(tokenKey())
+    if (token.trim() && remember) localStorage.setItem(tokenKey(), token.trim())
+    else localStorage.removeItem(tokenKey())
   } catch { /* 이 세션의 메모리에서 유지 */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(API_CHANGED_EVENT))
 }
@@ -126,6 +130,14 @@ export interface Capabilities {
   models: ModelCapability[]
   assistant: { configured: boolean; model: string | null; available?: boolean | null; timeout_seconds?: number }
   auth: { required: boolean }
+}
+export const assistantStatusDescription = '파형 사건 대화와 마을 FRTU 도우미는 서버 LLM에 근거를 보내 답변을 요청합니다. LLM을 사용할 수 없으면 규칙 답변으로 대체하며, 답변마다 실제 사용 방식을 표시합니다.'
+/** The API's available flag only verifies that the configured model appears in Ollama's model list. */
+export function assistantStatusLabel(assistant: Capabilities['assistant']): string {
+  if (!assistant.configured) return 'LLM 미설정 · 서버 규칙으로 답변'
+  if (assistant.available === false) return '설정 모델을 서버에서 확인하지 못함 · 서버 규칙으로 대체'
+  if (assistant.available === true) return '설정 모델 목록 확인됨 · 실제 답변 채택 여부는 대화 결과에서 확인'
+  return 'LLM 설정됨 · 모델 목록 확인 중'
 }
 export interface CapabilityState { state: 'idle' | 'checking' | 'ok' | 'down'; data: Capabilities | null; detail: string; checkedAt: number | null }
 let capabilities: CapabilityState = { state: 'idle', data: null, detail: '', checkedAt: null }

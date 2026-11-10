@@ -4,11 +4,10 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { api } from '../api'
 import { useActor } from '../lib/actor'
 import { CHART } from '../lib/chart'
-import { FI_LABEL, FRTUS, frtuHistory, frtuViews, locateFault, type FrtuId } from '../lib/frtu'
-import { SOURCE_LABEL, STATUS_LABEL, type VillageSnapshot } from '../lib/village'
+import { FRTUS, frtuHistory, frtuViews, locateFault, type FrtuId } from '../lib/frtu'
+import { SOURCE_LABEL, type VillageSnapshot } from '../lib/village'
 import { MODEL_SCOPES, parseCsv, diagnose } from '../lib/waveform'
 import type { AnalysisResult, InputDiagnosis, ModelCountry } from '../types'
-import { useVillageEvents } from '../lib/villageEvents'
 import FaultAnalysis from './FaultAnalysis'
 import { IconArrowRight, IconX } from './Icons'
 import { Badge, NODE_TONE, Status } from './ui'
@@ -23,7 +22,7 @@ export function LiveWave({ snap, frtu = 'inlet' }: { snap: VillageSnapshot; frtu
     <>
       <div className="small muted">출처: {SOURCE_LABEL[snap.source]} · 저장된 실측 표본 {data.length}개</div>
       <div className="ai-sub">전류 (mA)</div>
-      <ResponsiveContainer width="100%" height={130}>
+      <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
           <XAxis dataKey="t" type="number" domain={['dataMin', 0]} tick={CHART.tick} axisLine={false} tickLine={false} unit="s" />
@@ -33,7 +32,7 @@ export function LiveWave({ snap, frtu = 'inlet' }: { snap: VillageSnapshot; frtu
         </LineChart>
       </ResponsiveContainer>
       <div className="ai-sub">전압 (V)</div>
-      <ResponsiveContainer width="100%" height={90}>
+      <ResponsiveContainer width="100%" height={140}>
         <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
           <XAxis dataKey="t" type="number" domain={['dataMin', 0]} hide />
@@ -142,8 +141,8 @@ export function FaultLocationBox({ snap }: { snap: VillageSnapshot }) {
 }
 
 /** 화면 오른쪽에 붙는 FRTU 요약 패널 (FRTU를 누르면 열림). 자세한 분석·대화는 상세 화면에서 */
+/** 3D 마을 옆 FRTU 패널: 전류·전압만 간단히. 자세한 분석은 FRTU 파형 분석 페이지에서 */
 export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: VillageSnapshot; frtu: FrtuId; onPick: (id: FrtuId) => void; onClose: () => void }) {
-  const events = useVillageEvents()
   const f = frtuViews(snap)[frtu]
   const sensorSource = !snap.connected
     ? '장치 연결 끊김'
@@ -152,8 +151,6 @@ export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: Village
       : frtu === 'inlet'
         ? snap.zones ? '두 INA219 구간 실측 합' : '응답 센서 1개의 전체 실측값'
         : snap.zones ? `${f.def.sensor} 실측` : `${f.def.sensor} 미응답`
-  const alarm = f.fi !== 'NONE' || ['WARNING', 'FAULT', 'OUTAGE'].includes(f.status)
-  const v = events[0]?.verdict
   return (
     <aside className="ai-panel" aria-label="FRTU 요약">
       <div className="ai-head">
@@ -165,24 +162,14 @@ export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: Village
       </div>
       <div className="ai-body">
         <FrtuStrip snap={snap} value={frtu} onPick={onPick} />
-        <span className={`ai-chip ${alarm ? 'alarm' : ''}`}>
-          <Status tone={f.fi !== 'NONE' ? 'err' : NODE_TONE[f.status]} live={alarm}>{STATUS_LABEL[f.status]} · {FI_LABEL[f.fi]}</Status>
-        </span>
         {f.available ? (
-          <dl className="ai-kv">
-            <div><dt>측정 전류</dt><dd>{(f.i * 1000).toFixed(1)} mA</dd></div>
-            <div><dt>예상 전류</dt><dd>{(f.expected * 1000).toFixed(1)} mA</dd></div>
-            <div><dt>전압</dt><dd>{f.v.toFixed(2)} V</dd></div>
-            <div><dt>이상 점수</dt><dd>{f.score.toFixed(2)}</dd></div>
-            <div><dt>마지막 AI 판정</dt><dd>{!v ? '—' : v.kind === 'ANSWERED' ? v.labelKo : v.kind === 'WITHHELD' ? '보류' : v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</dd></div>
-          </dl>
+          <LiveWave snap={snap} frtu={frtu} />
         ) : (
           <p className="small muted">{f.unavailableReason}</p>
         )}
-        <FaultLocationBox snap={snap} />
         {frtu === 'inlet' && <p className="xs muted">{snap.source === 'MOCK' ? '시뮬레이터 값입니다.' : snap.zones ? '인입값은 두 분기 실측값을 합산한 값입니다.' : '인입값은 응답한 센서 하나의 실측값입니다.'} 직류 모형 계측이며 교류 고장파형 분석과는 별도입니다.</p>}
       </div>
-      <Link to={`/frtu?id=${frtu}`} className="ai-more">FRTU 상세 열기 <IconArrowRight /></Link>
+      <Link to={`/frtu?id=${frtu}`} className="ai-more">FRTU 파형 분석 열기 <IconArrowRight /></Link>
     </aside>
   )
 }

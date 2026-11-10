@@ -6,11 +6,73 @@
 import { FRTUS, frtuViews, locateFault } from './frtu'
 import { inspectionCandidate } from './gis'
 import { getVillage, IOT_CHANNELS, STATUS_LABEL } from './village'
+import type { VillageSnapshot } from './village'
+import { DEVICE_INFO, SOURCE_LABEL } from './village'
 import type { AnalyzedEvent } from './villageEvents'
+import { formatModelScore } from './modelScore'
+
+export interface VillageEvidence { id: string; label: string; value: string }
+
+/** Build a bounded, source-labelled snapshot. Missing/stale measurements are never encoded as zero. */
+export function buildVillageEvidence(s: VillageSnapshot, events: AnalyzedEvent[], now = Date.now()): VillageEvidence[] {
+  const evidence: VillageEvidence[] = []
+  const add = (id: string, label: string, value: string) => evidence.push({ id: `village.${id}`, label, value: value.slice(0, 1000) })
+  const source = SOURCE_LABEL[s.source]
+  const stale = s.source === 'SERIAL' && s.connected && (!s.lastPacketAt || now - s.lastPacketAt > 5000)
+  const available = s.connected && s.status !== 'NO_DATA' && !stale
+  add('source', '자료 출처', `${source} · ${DEVICE_INFO[s.source].deviceId}`)
+  add('status', '마을 상태', available ? STATUS_LABEL[s.status] : stale ? '오래된 계측 · 최신 값 없음' : '계측 데이터 없음')
+  if (available) {
+    add('measurement.total', '전체 실측', `${s.v.toFixed(2)} V · ${(s.i * 1000).toFixed(1)} mA · 릴레이 ${s.relay ? '투입' : '차단'} · ${new Date(s.lastPacketAt!).toISOString()}`)
+    add('channels', '채널 상태', IOT_CHANNELS.map((c) => `${c.name} ${s.channels[c.id] ? 'ON' : 'OFF'}`).join(' · '))
+    const views = frtuViews(s)
+    for (const f of Object.values(views)) add(`frtu.${f.def.id}`, f.def.name, f.available
+      ? `${STATUS_LABEL[f.status]} · ${f.v.toFixed(2)} V · 측정 ${(f.i * 1000).toFixed(1)} mA · 예상 ${(f.expected * 1000).toFixed(1)} mA · FI ${f.fi}`
+      : `측정 불가: ${f.unavailableReason ?? '값 없음'}`)
+    const loc = locateFault(s, views)
+    add('location', 'FRTU 구간 판정', `${loc.title}${loc.reasons.length ? ` · ${loc.reasons.join(' / ')}` : ''}`)
+  } else {
+    add('measurement.total', '전체 실측', stale ? '최신 계측이 5초 이상 수신되지 않음' : '현재 계측값 없음')
+    for (const id of ['inlet', 'house', 'lamp']) add(`frtu.${id}`, `${id} FRTU`, '현재 측정 불가 · 0으로 간주하지 않음')
+  }
+  for (const [index, item] of events.slice(0, 3).entries()) {
+    const e = item.e
+    const prefix = `event.${index === 0 ? 'latest' : index + 1}`
+    const eventSource = `${e.source === 'MOCK' ? '시뮬레이터' : e.source === 'SERIAL' ? '실측 Arduino' : '출처 미기록'} · ${new Date(e.receivedAt).toISOString()}`
+    const verdict = item.verdict.kind === 'ANSWERED' || item.verdict.kind === 'WITHHELD'
+      ? `${item.verdict.kind === 'ANSWERED' ? '판정' : '보류'} ${item.verdict.labelKo} · 점수 ${item.verdict.score.toFixed(2)} (확률 아님)`
+      : item.verdict.kind === 'NO_MODEL' ? '분류 모델 없음' : `입력 거부 · ${item.verdict.reasons[0] ?? '사유 없음'}`
+    add(`${prefix}.summary`, `저장 사건 #${e.ev}`, `${eventSource} · ${e.src === 'cmd' ? `명령 직후 ${e.cmd || '(명령 미기록)'}` : '자동 감지'} · ${verdict} · ${e.i100.length}개 원시 표본 · 채널 ${e.ch.join('')}`)
+    if (item.verdict.kind === 'ANSWERED' || item.verdict.kind === 'WITHHELD') {
+      item.verdict.evidence.slice(0, 4).forEach((f, n) => add(`${prefix}.feature.${n}`, f.label, `${f.value.toFixed(3)} · 기여도 ${f.contribution >= 0 ? '+' : ''}${f.contribution.toFixed(3)}`))
+    }
+  }
+  // Keep a representative of each UNO trigger type even when newer events
+  // have pushed it out of the recent-three window. This enables a factual
+  // comparison between a recorded relay command and an automatic capture.
+  for (const [kind, src] of [['command', 'cmd'], ['automatic', 'auto']] as const) {
+    const item = events.find((candidate) => candidate.e.src === src)
+    if (!item) continue
+    const e = item.e
+    const verdict = item.verdict.kind === 'ANSWERED' || item.verdict.kind === 'WITHHELD'
+      ? `${item.verdict.kind === 'ANSWERED' ? '판정' : '보류'} ${item.verdict.labelKo} · 점수 ${item.verdict.score.toFixed(2)} (확률 아님)`
+      : item.verdict.kind === 'NO_MODEL' ? '분류 모델 없음' : `입력 거부 · ${item.verdict.reasons[0] ?? '사유 없음'}`
+    const eventSource = e.source === 'MOCK' ? '시뮬레이터' : e.source === 'SERIAL' ? '실측 Arduino' : '출처 미기록'
+    add(`event.${kind}.summary`, `${kind === 'command' ? '최근 명령 사건' : '최근 자동 감지 사건'} #${e.ev}`, `${eventSource} · ${new Date(e.receivedAt).toISOString()} · ${e.src === 'cmd' ? `명령 직후 ${e.cmd || '(명령 미기록)'}` : '자동 감지'} · ${verdict} · ${e.i100.length}개 원시 표본 · 채널 ${e.ch.join('')}`)
+  }
+  return evidence.slice(0, 32)
+}
 
 export interface ChatMsg {
   role: 'user' | 'bot'
   text: string
+}
+
+export function villageChatHistory(messages: ChatMsg[]): { role: 'user' | 'assistant'; content: string }[] {
+  return messages.slice(1).slice(-12).map((m) => ({
+    role: m.role === 'bot' ? 'assistant' as const : 'user' as const,
+    content: m.role === 'bot' ? m.text.replace(/\n\[(?:서버 LLM|서버 규칙 답변|브라우저 규칙 답변)[^\]]*\]$/, '') : m.text,
+  })).filter((turn) => turn.content.trim())
 }
 
 export const SUGGESTIONS = ['지금 상태 어때?', '어느 분기가 문제야?', 'FRTU별 전류는?', '왜 이상이야?', '마지막 사건 판정은?']
@@ -24,7 +86,7 @@ function verdictText(a: AnalyzedEvent): string {
   const source = `${a.e.source === 'MOCK' ? '시뮬레이터' : '실측 Arduino'} · ${new Date(a.e.receivedAt).toLocaleString('ko-KR')}`
   if (v.kind === 'ANSWERED') {
     const why = v.evidence.slice(0, 2).map((e) => e.label).join(', ')
-    return `${source} 사건 #${a.e.ev}은(는) '${v.labelKo}'(으)로 판정했어요. 점수 ${Math.round(v.score * 100)}%, 주요 근거는 ${why}입니다.`
+    return `${source} 사건 #${a.e.ev}은(는) '${v.labelKo}'(으)로 판정했어요. 모델 점수 ${formatModelScore(v.score)} (정답 확률 아님), 주요 근거는 ${why}입니다.`
   }
   if (v.kind === 'WITHHELD') return `${source} 사건 #${a.e.ev}은(는) 판정을 보류했어요. 1순위는 '${v.labelKo}'였지만 ${v.reasons[0] ?? '근거가 부족'}해서요.`
   if (v.kind === 'NO_MODEL') return `${source} 사건 #${a.e.ev}의 파형은 기록했지만, 원인 분류 모델이 아직 학습 전이라 판정하지 않았어요.`
