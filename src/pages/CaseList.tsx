@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { DiagnosisBadge, StageBadge } from '../components/Badges'
+import { DiagnosisBadge } from '../components/Badges'
 import { IconAnalysis, IconPlus } from '../components/Icons'
 import ModelCardPanel from '../components/ModelCardPanel'
 import { Badge, Empty, ErrorState, PageHeader, Segmented, TableSkeleton } from '../components/ui'
 import { fmtTime } from '../lib/actor'
 import { API_CHANGED_EVENT } from '../lib/backend'
+import { APPROVAL_LABEL, APPROVAL_TONE, approvalLog, summaryStatus, useApprovals, type ApprovalStatus } from '../lib/approval'
 import type { CaseSummary } from '../types'
 
-type Filter = 'ALL' | 'PENDING' | 'REVIEWED'
-const FILTER_LABEL: Record<Filter, string> = { ALL: '전체', PENDING: '검토 대기', REVIEWED: '검토 완료' }
+type Filter = 'ALL' | ApprovalStatus
+const FILTER_LABEL: Record<Exclude<Filter, 'INVESTIGATING'>, string> = { ALL: '전체', NEEDS_REVIEW: '검토 대기', PENDING_APPROVAL: '승인 대기', REJECTED: '반려', APPROVED: '확정' }
 type Kind = 'ALL' | 'WAVEFORM' | 'IOT'
 const KIND_LABEL: Record<Kind, string> = { ALL: '모든 사건', WAVEFORM: '고장파형', IOT: '마을 FRTU' }
 
@@ -34,7 +35,9 @@ export default function CaseList() {
     return () => { clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(API_CHANGED_EVENT, load) }
   }, [load])
 
-  const match = (c: CaseSummary, f: Filter) => (kind === 'ALL' || c.caseType === kind) && (f === 'ALL' || (f === 'REVIEWED') === (c.stage === 'REVIEWED'))
+  const approvals = useApprovals()
+  const statusOf = (c: CaseSummary) => summaryStatus(c, approvalLog(approvals, c.id))
+  const match = (c: CaseSummary, f: Filter) => (kind === 'ALL' || c.caseType === kind) && (f === 'ALL' || statusOf(c) === f)
   const shown = cases?.filter((c) => match(c, filter))
   const count = (f: Filter) => cases?.filter((c) => match(c, f)).length ?? 0
   const pathOf = (c: CaseSummary) => `/cases/${c.id}`
@@ -43,7 +46,7 @@ export default function CaseList() {
     <>
       <PageHeader
         title="사건 기록"
-        description="고장파형 파일로 등록한 사건과, 마을 FRTU가 이상을 감지해 자동으로 등록한 사건을 함께 기록합니다. 분석 결과와 사람의 검토를 남깁니다."
+        description="지금까지의 사고를 정리하는 기록이에요. 사건은 등록 → 분석 → 담당자 검토 → 다른 사람의 최종 승인을 거쳐야 확정되고, 확정된 사건만 사고 기록과 AI 학습 데이터로 씁니다."
         actions={
           <Link to="/cases/new" className="btn btn-primary">
             <IconPlus />
@@ -57,7 +60,7 @@ export default function CaseList() {
         <Segmented value={kind} onChange={setKind} options={(Object.keys(KIND_LABEL) as Kind[]).map((k) => ({ value: k, label: `${KIND_LABEL[k]} ${cases ? (k === 'ALL' ? cases.length : cases.filter((c) => c.caseType === k).length) : ''}` }))} />
       </div>
       <div className="tabs" role="tablist">
-        {(Object.keys(FILTER_LABEL) as Filter[]).map((f) => (
+        {(Object.keys(FILTER_LABEL) as Exclude<Filter, 'INVESTIGATING'>[]).map((f) => (
           <button key={f} role="tab" aria-selected={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>
             {FILTER_LABEL[f]}
             <span className="count">{count(f)}</span>
@@ -72,7 +75,7 @@ export default function CaseList() {
       ) : shown.length === 0 ? (
         <Empty
           icon={<IconAnalysis />}
-          title={filter === 'ALL' ? '등록된 사건이 없습니다' : `${FILTER_LABEL[filter]} 사건이 없습니다`}
+          title={filter === 'ALL' ? '등록된 사건이 없습니다' : `${APPROVAL_LABEL[filter]} 사건이 없습니다`}
           description="CSV 파형을 올리면 해시를 남기고 입력 진단부터 시작합니다. 실제 공개 파형 샘플로 바로 시험해 볼 수도 있습니다."
           action={filter === 'ALL' ? <Link to="/cases/new" className="btn btn-primary">고장파형 등록</Link> : undefined}
         />
@@ -84,7 +87,7 @@ export default function CaseList() {
                 <th>사건</th>
                 <th>출처</th>
                 <th>데이터 점검</th>
-                <th>단계</th>
+                <th>상태</th>
                 <th className="num">등록</th>
               </tr>
             </thead>
@@ -97,7 +100,7 @@ export default function CaseList() {
                   </td>
                   <td className="muted"><Badge outline>{c.caseType === 'IOT' ? '마을 FRTU' : '고장파형'}</Badge> {c.source}</td>
                   <td><DiagnosisBadge status={c.diagnosisStatus} /></td>
-                  <td><StageBadge stage={c.stage} /></td>
+                  <td><Badge tone={APPROVAL_TONE[statusOf(c)]}>{APPROVAL_LABEL[statusOf(c)]}</Badge></td>
                   <td className="num muted">{fmtTime(c.createdAt)}</td>
                 </tr>
               ))}
