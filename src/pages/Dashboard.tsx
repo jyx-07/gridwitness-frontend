@@ -7,7 +7,7 @@ import { Badge, ErrorState, TableSkeleton, type Tone } from '../components/ui'
 import { frtuViews, locateFault } from '../lib/frtu'
 import { askAssistantAbout } from '../lib/panels'
 import { API_CHANGED_EVENT } from '../lib/backend'
-import { openIncident, STAGE_LABEL, useLiveIncidents } from '../lib/liveIncident'
+import { STAGE_LABEL, useLiveIncidents } from '../lib/liveIncident'
 import { STATUS_LABEL, useVillage } from '../lib/village'
 import { useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
 import type { AnyCase, CaseStage, CaseSummary } from '../types'
@@ -100,6 +100,7 @@ function ResponseCard({ cases, full, now }: { cases: CaseSummary[]; full: AnyCas
 /** 오늘 생긴 실시간 사건 (발생 → 처리 단계 → 복구) */
 function TodayIncidents() {
   const { incidents } = useLiveIncidents()
+  const nav = useNavigate()
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   const today = incidents.filter((x) => x.startedAt >= start.getTime())
@@ -116,7 +117,7 @@ function TodayIncidents() {
           {today.slice(0, 6).map((x) => (
             <li key={x.id} className={x.clearedAt ? '' : 'live'}>
               <span className="today-time num">{new Date(x.startedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-              <button type="button" className="today-main" onClick={() => openIncident(x.id)}>
+              <button type="button" className="today-main" onClick={() => nav(`/incidents/${x.recordId}`)}>
                 <strong>{x.title.split(' (')[0]}</strong>
                 <span>{x.clearedAt ? `${Math.round((x.clearedAt - x.startedAt) / 1000)}초 만에 복구` : '진행 중'} · {x.assignee ?? '담당자 미지정'}</span>
               </button>
@@ -230,7 +231,7 @@ export default function Dashboard() {
           value={live ? `${fiCount}/3` : '—'}
           chip={!live ? '계측값 없음' : fiCount ? loc.title.split(' (')[0] : '모두 정상'}
           icon={<IconLive />}
-          onClick={() => nav('/village?frtu=inlet')}
+          onClick={() => nav('/frtu')}
         />
       </div>
 
@@ -238,13 +239,13 @@ export default function Dashboard() {
         <section className="dash-card">
           <div className="dash-card-head">
             <h2>마을 FRTU</h2>
-            <Link to="/village?frtu=inlet" className="pill-link">FRTU 파형 분석 <IconArrowRight /></Link>
+            <Link to="/frtu" className="pill-link">FRTU 파형 분석 <IconArrowRight /></Link>
           </div>
           {!live ? (
             <DeviceConnectCard real={snap.source === 'SERIAL'} reconnecting={snap.reconnecting} />
           ) : (
             <div className="dash-sub">
-              <FrtuStrip snap={snap} value="inlet" onPick={(id) => nav(`/village?frtu=${id}`)} />
+              <FrtuStrip snap={snap} value="inlet" onPick={(id) => nav(`/frtu${id === 'inlet' ? '' : `?id=${id}`}`)} />
               <FaultLocationBox snap={snap} />
             </div>
           )}
@@ -261,7 +262,7 @@ export default function Dashboard() {
               <thead><tr><th>사건</th><th>판정</th><th>판정 주체</th><th className="num">점수</th><th className="num">시각</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.key} className="clickable" onClick={() => nav('/village?frtu=inlet')}>
+                  <tr key={r.key} className="clickable" onClick={() => nav('/frtu')}>
                     <td><span className="row-icon"><IconWave /></span>{r.name}</td>
                     <td><Badge tone={r.tone}>{r.text}</Badge></td>
                     <td className="muted">{r.by}</td>
