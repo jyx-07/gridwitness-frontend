@@ -1858,3 +1858,17 @@ body { background-attachment: fixed; }
 .arch-flows ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13.5px; }
 @media (max-width: 1200px) { .arch { grid-template-columns: repeat(2, minmax(0, 1fr)); } .arch-arrow { display: none; } }
 @media (max-width: 640px) { .arch { grid-template-columns: 1fr; } }
+
+/* AI 성능 검증 */
+.val-cm-wrap { overflow-x: auto; margin-top: 8px; }
+.val-cm { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.val-cm th, .val-cm td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.val-cm thead th { font-weight: 600; color: var(--text-2); font-size: 12px; }
+.val-cm tbody th { text-align: left; font-weight: 600; color: var(--ink); }
+.val-cm td.hit { background: #e7f4ee; color: #1d7148; font-weight: 700; }
+.val-cm td.miss { background: var(--err-tint); color: var(--err); font-weight: 700; }
+.val-cm td.zero { color: #c3c7cf; }
+.val-imp { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.val-imp li { display: grid; grid-template-columns: 9em 1fr 3.5em; align-items: center; gap: 8px; font-size: 13px; }
+.val-imp i { display: block; height: 8px; border-radius: 4px; background: var(--accent); }
+.val-imp b { text-align: right; font-weight: 600; color: var(--text-2); }
