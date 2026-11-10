@@ -2,7 +2,9 @@ import { Link, useParams } from 'react-router-dom'
 import { getVillageRecordState, retryVillageRecords, useVillagePersistence } from '../api/village'
 import FrtuWaveAnalysis, { similarOf, verdictInfo } from '../components/FrtuWaveAnalysis'
 import { findRecorded, IncidentTrail, StageBar } from '../components/LiveIncident'
+import FiCheckBox from '../components/FiCheckBox'
 import ResponseTiming from '../components/ResponseTiming'
+import { fiCrossCheck } from '../lib/fiCheck'
 import { Badge, Empty, PageHeader } from '../components/ui'
 import { FRTUS } from '../lib/frtu'
 import { FI_SHORT, useLiveIncidents } from '../lib/liveIncident'
@@ -53,6 +55,7 @@ export default function IncidentDetail() {
   const recorded = findRecorded(inc, events)
   const v = recorded?.verdict
   const cmp = compare(inc.cause, v)
+  const fiCheck = fiCrossCheck(inc, recorded)
   const stored = getVillageRecordState(inc.recordId)
   const points = inc.points.map((p) => ({ ...p, v: Number.NaN }))
 
@@ -101,7 +104,8 @@ export default function IncidentDetail() {
         }
         extraSide={
           <div className="fa-card">
-            <div className="fa-card-head">
+            <FiCheckBox check={fiCheck} />
+            <div className="fa-card-head" style={{ marginTop: 12 }}>
               <strong>판정 비교</strong>
               <Badge tone={cmp.tone === 'ok' ? 'ok' : cmp.tone === 'warn' ? 'warn' : 'neutral'}>{cmp.tone === 'ok' ? '판정 일치' : cmp.tone === 'warn' ? '확인 필요' : '규칙 판정만'}</Badge>
             </div>
