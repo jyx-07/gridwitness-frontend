@@ -9,7 +9,7 @@ import SceneBoundary from '../components/SceneBoundary'
 import Sparkline from '../components/Sparkline'
 import { Badge, NODE_TONE, Section, Segmented, Status } from '../components/ui'
 import VillageScene from '../components/village/VillageScene'
-import { LiveAnalysis } from './LiveData'
+import { LiveFrtuWaveAnalysis } from '../components/FrtuWaveAnalysis'
 import { isFrtuId, type FrtuId } from '../lib/frtu'
 import { announcePanelOpen, ASSISTANT_OPEN_EVENT, INCIDENT_OPEN_EVENT } from '../lib/panels'
 import { NET_COLOR, NET_KIND_LABEL, type NetKind, type PartId } from '../lib/hardware'
@@ -251,7 +251,7 @@ export default function Village() {
           </div>
         )}
         {!underground && !frtu && <div className="scene-hint glass">전봇대의 FRTU 함을 누르면 계측·고장표시가 열려요</div>}
-        {frtu && !underground && <AiPanel snap={snap} frtu={frtu} onPick={setFrtu} onClose={() => setFrtu(null)} />}
+        {frtu && !underground && <AiPanel snap={snap} frtu={frtu} onPick={setFrtu} onClose={() => setFrtu(null)} onOpenWave={() => { setLiveOpen(true); liveDlg.current?.showModal() }} />}
 
         {underground && part && <PartPanel id={part} snap={snap} onClose={() => setPart(null)} />}
         {sel && selView && !underground && (
@@ -332,8 +332,8 @@ export default function Village() {
         </div>
       </Section>
 
-          <Section title="실시간 분석" actions={<button type="button" className="btn btn-sm" onClick={() => { setLiveOpen(true); liveDlg.current?.showModal() }}>크게 보기</button>}>
-            <LiveAnalysis compact />
+          <Section title="FRTU 파형 분석" actions={<button type="button" className="btn btn-sm" onClick={() => { setLiveOpen(true); liveDlg.current?.showModal() }}>크게 보기</button>}>
+            <LiveFrtuWaveAnalysis stacked compact />
           </Section>
 
           <Section title="이상 이벤트" actions={<Link to="/village/loads" className="small">부하(LED 5개) 현황 →</Link>}>
@@ -343,12 +343,12 @@ export default function Village() {
         </aside>
       )}
       {/* 페이지를 떠나지 않고 실시간 분석 전체를 팝업으로 (ESC·바깥 클릭으로 닫힘) */}
-      <dialog ref={liveDlg} className="live-dialog" aria-label="실시간 분석" onClose={() => setLiveOpen(false)} onClick={(e) => { if (e.target === e.currentTarget) liveDlg.current?.close() }}>
+      <dialog ref={liveDlg} className="live-dialog" aria-label="FRTU 파형 분석" onClose={() => setLiveOpen(false)} onClick={(e) => { if (e.target === e.currentTarget) liveDlg.current?.close() }}>
         <div className="ai-head">
-          <strong>실시간 분석</strong>
+          <strong>FRTU 파형 분석 · 실시간</strong>
           <button className="btn btn-ghost btn-icon" onClick={() => liveDlg.current?.close()} aria-label="닫기"><IconX /></button>
         </div>
-        {liveOpen && <LiveAnalysis />}
+        {liveOpen && <LiveFrtuWaveAnalysis />}
       </dialog>
       </div>
     </div>
