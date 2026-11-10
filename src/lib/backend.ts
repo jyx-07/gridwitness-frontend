@@ -131,6 +131,7 @@ export interface Capabilities {
   assistant: { configured: boolean; model: string | null; available?: boolean | null; timeout_seconds?: number }
   auth: { required: boolean }
 }
+export const assistantStatusDescription = '파형 사건 대화와 마을 FRTU 도우미는 서버 LLM에 근거를 보내 답변을 요청합니다. LLM을 사용할 수 없으면 규칙 답변으로 대체하며, 답변마다 실제 사용 방식을 표시합니다.'
 /** The API's available flag only verifies that the configured model appears in Ollama's model list. */
 export function assistantStatusLabel(assistant: Capabilities['assistant']): string {
   if (!assistant.configured) return 'LLM 미설정 · 서버 규칙으로 답변'
