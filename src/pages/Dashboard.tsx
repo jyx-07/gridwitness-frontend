@@ -10,7 +10,8 @@ import { API_CHANGED_EVENT } from '../lib/backend'
 import { STAGE_LABEL, useLiveIncidents } from '../lib/liveIncident'
 import { formatModelScore } from '../lib/modelScore'
 import { STATUS_LABEL, useVillage } from '../lib/village'
-import { useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
+import { EVENT_MODEL, useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
+import { loadModelCard, type ModelCard } from '../lib/aiExplain'
 import type { AnyCase, CaseStage, CaseSummary } from '../types'
 import { DeviceConnectCard } from './LiveData'
 import { KEPCO_OUTAGE_2025, KEPCO_OUTAGE_SOURCE, loadRegion, outageTotals, saveRegion } from '../data/kepcoOutage'
@@ -43,6 +44,43 @@ function Kpi({ label, value, chip, icon, primary, onClick }: { label: string; va
       <div className="kpi-value">{value}</div>
       <span className="kpi-chip">{chip}</span>
     </div>
+  )
+}
+
+/** 대시보드에서 바로 보는 AI 신뢰도: 학습에 쓰지 않은 시험 결과 요약. 자세한 내용은 성능 검증 화면 */
+function ValidationCard() {
+  const [card, setCard] = useState<ModelCard | null>(null)
+  useEffect(() => {
+    loadModelCard().then(setCard, () => setCard(null))
+  }, [])
+  const vm = (EVENT_MODEL as unknown as { metrics?: { n_test: number; test_all: { accuracy: number }; test_selective: { abstained: number } } }).metrics
+  const cn = card?.test_selective
+  const pct = (x: number) => `${(x * 100).toFixed(1)}%`
+  return (
+    <section className="dash-card">
+      <div className="dash-card-head">
+        <h2>AI 성능 검증</h2>
+        <Link to="/validation" className="pill-link">자세히 <IconArrowRight /></Link>
+      </div>
+      <div className="dash-val">
+        <div>
+          <span>고장파형 AI</span>
+          <b className="num">{cn ? pct(cn.selective_accuracy) : '—'}</b>
+          <small>{cn ? `답한 ${cn.n - cn.abstained}건 기준` : '불러오는 중'}</small>
+        </div>
+        <div>
+          <span>마을 사건 AI</span>
+          <b className="num">{vm ? pct(vm.test_all.accuracy) : '—'}</b>
+          <small>{vm ? `시험 ${vm.n_test}건` : '평가 자료 없음'}</small>
+        </div>
+        <div>
+          <span>모르면 보류</span>
+          <b className="num">{cn && vm ? `${cn.abstained + vm.test_selective.abstained}건` : '—'}</b>
+          <small>확신 없으면 답하지 않음</small>
+        </div>
+      </div>
+      <p className="xs muted" style={{ margin: '8px 2px 0' }}>학습에 쓰지 않은 시험 데이터 기준 · 공개 파형과 모형 실측</p>
+    </section>
   )
 }
 
@@ -277,6 +315,7 @@ export default function Dashboard() {
         </section>
 
         <div className="stack" style={{ gap: 14 }}>
+          <ValidationCard />
           <RegionOutageCard />
           {cases && !error && <ResponseCard cases={cases} full={full} now={now} />}
 

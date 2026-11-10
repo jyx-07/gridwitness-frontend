@@ -1872,3 +1872,10 @@ body { background-attachment: fixed; }
 .val-imp li { display: grid; grid-template-columns: 9em 1fr 3.5em; align-items: center; gap: 8px; font-size: 13px; }
 .val-imp i { display: block; height: 8px; border-radius: 4px; background: var(--accent); }
 .val-imp b { text-align: right; font-weight: 600; color: var(--text-2); }
+
+/* 대시보드 · AI 성능 검증 카드 */
+.dash-val { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 6px; }
+.dash-val > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #f6f7fa; min-width: 0; }
+.dash-val span { font-size: 12px; color: var(--text-2); }
+.dash-val b { font-size: 22px; font-weight: 700; color: var(--ink); }
+.dash-val small { font-size: 11px; color: var(--text-2); overflow-wrap: anywhere; }
