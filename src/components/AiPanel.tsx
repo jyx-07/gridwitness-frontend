@@ -142,7 +142,7 @@ export function FaultLocationBox({ snap }: { snap: VillageSnapshot }) {
 }
 
 /** 화면 오른쪽에 붙는 FRTU 요약 패널 (FRTU를 누르면 열림). 자세한 분석·대화는 상세 화면에서 */
-export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: VillageSnapshot; frtu: FrtuId; onPick: (id: FrtuId) => void; onClose: () => void }) {
+export default function AiPanel({ snap, frtu, onPick, onClose, onOpenWave }: { snap: VillageSnapshot; frtu: FrtuId; onPick: (id: FrtuId) => void; onClose: () => void; onOpenWave?: () => void }) {
   const events = useVillageEvents()
   const f = frtuViews(snap)[frtu]
   const sensorSource = !snap.connected
@@ -182,7 +182,11 @@ export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: Village
         <FaultLocationBox snap={snap} />
         {frtu === 'inlet' && <p className="xs muted">{snap.source === 'MOCK' ? '시뮬레이터 값입니다.' : snap.zones ? '인입값은 두 분기 실측값을 합산한 값입니다.' : '인입값은 응답한 센서 하나의 실측값입니다.'} 직류 모형 계측이며 교류 고장파형 분석과는 별도입니다.</p>}
       </div>
-      <Link to={`/frtu?id=${frtu}`} className="ai-more">FRTU 상세 열기 <IconArrowRight /></Link>
+      {onOpenWave ? (
+        <button type="button" className="ai-more" onClick={onOpenWave}>FRTU 파형 분석 열기 <IconArrowRight /></button>
+      ) : (
+        <Link to={`/frtu?id=${frtu}`} className="ai-more">FRTU 상세 열기 <IconArrowRight /></Link>
+      )}
     </aside>
   )
 }
