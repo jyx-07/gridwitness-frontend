@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { setApiToken } from '../lib/backend'
 import type { NodeStatus } from '../lib/village'
 import type { CaseStage, DiagnosisStatus } from '../types'
 import { IconAlert, IconChevron, IconInbox } from './Icons'
@@ -136,13 +137,27 @@ export function Empty({ icon, title, description, action, compact }: { icon?: Re
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  // 접근 코드 문제면 설정으로 보내지 않고 이 자리에서 바로 넣게 함
+  const needsCode = /접근 코드/.test(message)
   return (
     <div className="empty error" role="alert">
       <div className="empty-icon"><IconAlert /></div>
-      <div className="empty-title">불러오지 못했습니다</div>
-      <p className="empty-desc">{message}</p>
-      {onRetry && <button className="btn" onClick={onRetry}>다시 시도</button>}
+      <div className="empty-title">{needsCode ? '서버 접근 코드가 필요해요' : '불러오지 못했습니다'}</div>
+      <p className="empty-desc">{needsCode ? '담당자에게 받은 코드를 넣으면 바로 다시 불러와요.' : message}</p>
+      {needsCode ? <AccessCodeForm onDone={onRetry} /> : onRetry && <button className="btn" onClick={onRetry}>다시 시도</button>}
     </div>
+  )
+}
+
+function AccessCodeForm({ onDone }: { onDone?: () => void }) {
+  const [code, setCode] = useState('')
+  const [remember, setRemember] = useState(true)
+  return (
+    <form className="code-form" onSubmit={(e) => { e.preventDefault(); if (!code.trim()) return; setApiToken(code, remember); onDone?.() }}>
+      <input type="password" autoComplete="off" placeholder="서버 접근 코드" value={code} onChange={(e) => setCode(e.target.value)} aria-label="서버 접근 코드" />
+      <button className="btn btn-primary" type="submit" disabled={!code.trim()}>적용</button>
+      <label className="small muted"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> 이 브라우저에 기억</label>
+    </form>
   )
 }
 
