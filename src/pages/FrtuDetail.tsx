@@ -48,6 +48,13 @@ export default function FrtuDetail() {
   const suspects = id === 'inlet' ? snap.diagnosis?.candidates.map((c) => snap.leds[c].name).join(', ') : undefined
   const mine = IOT_CHANNELS.filter((c) => f.def.channels.includes(c.id))
   const on = mine.filter((c) => snap.leds[c.id].channelOn)
+  const sensorSource = !snap.connected
+    ? '장치 연결 끊김'
+    : snap.source === 'MOCK'
+      ? '브라우저 시뮬레이터 데이터'
+      : id === 'inlet'
+        ? snap.zones ? 'INA219 두 구간 실측값의 합' : '응답한 INA219 센서의 실측 전체값'
+        : snap.zones ? `${f.def.sensor} 실측` : `${f.def.sensor} 미응답 · 분기값 없음`
   // 화면에 보이는 값만으로 만든 근거 문장 (지어내지 않음)
   const reasons = !f.available
     ? [f.unavailableReason ?? '계측값이 없어요.']
@@ -64,7 +71,7 @@ export default function FrtuDetail() {
       <div className="dash-head">
         <div>
           <h1>{f.def.name}</h1>
-          <p>{f.def.role} FRTU · {f.def.sensor} · 0.5초 간격 계측</p>
+          <p>{f.def.role} FRTU · {sensorSource}{f.available ? ' · 약 0.5초 간격 수신' : ''}</p>
         </div>
         <Status tone={f.fi !== 'NONE' ? 'err' : NODE_TONE[f.status]} live={alarm}><strong>{STATUS_LABEL[f.status]}</strong></Status>
       </div>
@@ -89,7 +96,9 @@ export default function FrtuDetail() {
           </div>
         </div>
         <p className="xs muted">
-          마을 모형의 INA219 두 개를 분기 FRTU로, 그 합을 인입 FRTU로 보여줘요. 분기가 병렬 두 갈래라 &lsquo;어느 분기인지&rsquo;까지만 좁힐 수 있고, 직류 계측이라 교류 고장파형 분석과는 섞지 않아요.
+          {snap.source === 'MOCK' ? '시뮬레이터 데이터입니다. ' : 'Arduino에서 받은 값입니다. '}
+          {snap.zones ? '두 INA219 구간 실측으로 분기 FRTU를 표시하고, 인입값은 두 구간의 합입니다.' : '현재 응답한 INA219 한 개로 전체 전류만 측정합니다. 주택·가로등 분기값과 분기 파형은 측정되지 않아 표시하지 않습니다.'}
+          {' '}직류 모형 계측이며 교류 고장파형 분석과는 별도입니다.
         </p>
       </section>
 
@@ -101,7 +110,7 @@ export default function FrtuDetail() {
           </section>
 
           <section className="dash-card">
-            <div className="dash-card-head"><h2>AI 판단</h2><span className="small muted">{last ? `사건 #${last.e.ev} 기준` : '사건 대기 중'}</span></div>
+            <div className="dash-card-head"><h2>상태 판정 (임계값 기반)</h2><span className="small muted">{last ? `사건 #${last.e.ev} 기준` : 'AI 모델 판정이 아닌 계측 임계값 판정'}</span></div>
             <div className="judge-row">
               <div className="judge">
                 <span>현재 상태</span>
@@ -111,10 +120,10 @@ export default function FrtuDetail() {
                 <span>고장표시</span>
                 <strong>{FI_LABEL[f.fi]}</strong>
               </div>
-              <div className="judge">
+              {f.available && <div className="judge">
                 <span>이상 점수</span>
                 <strong>{f.score.toFixed(2)}</strong>
-              </div>
+              </div>}
               <div className="judge">
                 <span>마지막 사건 판정</span>
                 <strong>{!v ? '—' : v.kind === 'ANSWERED' ? v.labelKo : v.kind === 'WITHHELD' ? '보류' : v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</strong>
@@ -148,6 +157,7 @@ export default function FrtuDetail() {
         <div className="stack" style={{ gap: 14 }}>
           <section className="dash-card">
             <div className="dash-card-head"><h2>정보</h2></div>
+            {!f.available ? <div className="alert alert-warn small">{f.unavailableReason} 측정값·예상값·점수는 만들지 않습니다.</div> : <>
             <div className="info-box">
               <span>측정 전류</span>
               <strong>{(f.i * 1000).toFixed(1)} mA</strong>
@@ -165,9 +175,10 @@ export default function FrtuDetail() {
               <div><dt>전력</dt><dd>{(f.v * f.i).toFixed(2)} W</dd></div>
               <div><dt>맡은 LED</dt><dd>{mine.filter((c) => snap.leds[c.id].lit).length} / {mine.length} 켜짐</dd></div>
               <div><dt>마을 전원</dt><dd>{snap.relay ? '켜짐' : '차단'}</dd></div>
-              <div><dt>값 출처</dt><dd>{f.def.measured ? '실측' : '두 분기의 합 (계산값)'}</dd></div>
+              <div><dt>값 출처</dt><dd>{sensorSource}</dd></div>
               <div><dt>장치</dt><dd>{snap.connected ? DEVICE_INFO[snap.source].deviceId : '연결 끊김'}</dd></div>
             </dl>
+            </>}
           </section>
 
           <section className="dash-card">
