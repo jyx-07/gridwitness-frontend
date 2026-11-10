@@ -7,7 +7,7 @@ import { fmtTime } from '../lib/actor'
 import { STATUS_LABEL, THRESHOLDS } from '../lib/village'
 import type { AnyCase, IotCase } from '../types'
 import { DiagnosisBadge, StageBadge, Steps } from './Badges'
-import FrtuWaveAnalysis, { verdictInfo } from './FrtuWaveAnalysis'
+import FrtuWaveAnalysis, { similarOf, verdictInfo } from './FrtuWaveAnalysis'
 import IssueList from './IssueList'
 import { useVillageEvents } from '../lib/villageEvents'
 import ReviewPanel from './ReviewPanel'
@@ -72,6 +72,7 @@ export default function IotCaseView({ c, onChange }: { c: IotCase; onChange: (c:
                 points={c.window}
                 sourceText={c.device.sensor}
                 verdict={verdictInfo(matched)}
+                similar={similarOf(events, matched)}
                 rule={{ label: `${STATUS_LABEL[d.status]} · 최대 이상 점수 ${d.maxScore.toFixed(2)}`, lines: d.findings }}
                 onReview={() => setTab('review')}
               />
