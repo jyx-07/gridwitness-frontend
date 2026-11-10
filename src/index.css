@@ -1782,3 +1782,7 @@ body { background-attachment: fixed; }
 .mg-no li::before { content: '✕ '; color: var(--err); }
 @media (max-width: 1000px) { .mg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .fa-side .aiflow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.offline-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 0; }
+.code-form { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.code-form input[type="password"] { width: 220px; max-width: 100%; }
+.code-form label { display: inline-flex; align-items: center; gap: 4px; }
