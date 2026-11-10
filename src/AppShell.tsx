@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { IncidentBanner, IncidentSheet, IncidentWatcher } from './components/LiveIncident'
-import { IconAnalysis, IconDashboard, IconShieldCheck, IconDatabase, IconLogo, IconMenu, IconBolt, IconSettings, IconVillage } from './components/Icons'
+import { IconBrain, IconAnalysis, IconDashboard, IconShieldCheck, IconDatabase, IconLogo, IconMenu, IconBolt, IconSettings, IconVillage } from './components/Icons'
 import { Dot, PageSkeleton } from './components/ui'
 import { useActor } from './lib/actor'
 import { monitorBackend, useBackendHealth } from './lib/backend'
@@ -20,6 +20,7 @@ const NewCase = lazy(() => import('./pages/NewCase'))
 const PublicData = lazy(() => import('./pages/PublicData'))
 const Report = lazy(() => import('./pages/Report'))
 const Settings = lazy(() => import('./pages/Settings'))
+const SystemArchitecture = lazy(() => import('./pages/SystemArchitecture'))
 const VillageLoads = lazy(() => import('./pages/VillageLoads'))
 
 const Village = lazy(() => import('./pages/Village'))
@@ -39,6 +40,7 @@ const NAV: { label: string; items: { to: string; label: string; icon: ReactNode;
     items: [
       { to: '/cases', label: '사건 기록', icon: <IconAnalysis /> },
       { to: '/public-data', label: '공공데이터 분석', icon: <IconDatabase /> },
+      { to: '/system', label: '시스템 구조', icon: <IconBrain /> },
     ],
   },
   {
@@ -233,6 +235,7 @@ export function Shell({ extraRoutes }: { extraRoutes?: ReactNode } = {}) {
               <Route path="/history" element={<Navigate to="/cases" replace />} />
               <Route path="/history/:id" element={<HistoryRedirect />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/system" element={<SystemArchitecture />} />
               <Route path="*" element={<div className="empty"><h1>화면을 찾을 수 없습니다</h1><p>주소를 확인하거나 대시보드에서 다시 시작하세요.</p><Link className="btn btn-primary" to="/dashboard">대시보드로</Link></div>} />
             </Routes>
           </Suspense>

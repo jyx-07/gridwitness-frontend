@@ -1830,3 +1830,31 @@ body { background-attachment: fixed; }
 .fw-bar.low i { background: #e09b2d; }
 .fw-bar b { text-align: right; font-weight: 600; }
 @media (max-width: 760px) { .fw-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fw-steps li::after { display: none; } }
+
+/* 시스템 구조 */
+.arch { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; align-items: start; }
+.arch-lane { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px; background: #fff; box-shadow: 0 2px 10px rgba(20, 30, 60, .05); min-width: 0; }
+.arch-lane h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13px; color: var(--text-2); font-weight: 700; }
+.arch-ico svg { width: 15px; height: 15px; }
+.arch-arrow { position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: var(--text-2); font-weight: 700; z-index: 1; }
+.arch-node { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfc; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.arch-node:hover { border-color: var(--line-strong); background: #fff; }
+.arch-node.on { border-color: var(--accent); background: var(--accent-tint); }
+.arch-node-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.arch-node b { font-size: 13.5px; color: var(--ink); }
+.arch-node small { font-size: 11px; color: var(--text-2); overflow-wrap: anywhere; }
+.arch-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #c3c7cf; }
+.arch-dot.ok { background: var(--ok); } .arch-dot.warn { background: #e09b2d; } .arch-dot.down { background: var(--err); }
+.arch-live { align-self: flex-start; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: #f1f1f4; color: var(--text-2); }
+.arch-live.ok { background: #e7f4ee; color: #1d7148; } .arch-live.warn { background: #fdf2e3; color: #a35a00; } .arch-live.down { background: var(--err-tint); color: var(--err); }
+.arch-detail { margin-top: 16px; padding: 18px 20px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(20, 30, 60, .05); }
+.arch-detail-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arch-detail-head strong { font-size: 17px; color: var(--ink); }
+.arch-detail ul { margin: 10px 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.arch-guard { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: #f6f7fa; font-size: 13px; }
+.arch-guard b { margin-right: 6px; color: var(--ink); }
+.arch-flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
+.arch-flows > div { padding: 16px 18px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(20, 30, 60, .05); }
+.arch-flows ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13.5px; }
+@media (max-width: 1200px) { .arch { grid-template-columns: repeat(2, minmax(0, 1fr)); } .arch-arrow { display: none; } }
+@media (max-width: 640px) { .arch { grid-template-columns: 1fr; } }
