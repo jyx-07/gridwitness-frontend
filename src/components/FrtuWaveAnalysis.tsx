@@ -1,12 +1,13 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
-import { analyzeFrtuWave, buildFrtuWave, type FrtuWaveFeatures, type FrtuWaveKey, type FrtuWavePoint } from '../lib/frtuWave'
+import { analyzeFrtuWave, buildFrtuWave, type FrtuWave, type FrtuWaveFeatures, type FrtuWaveKey, type FrtuWavePoint } from '../lib/frtuWave'
 import { FI_LABEL, frtuViews, locateFault, type FaultScope } from '../lib/frtu'
 import { inspectionCandidate } from '../lib/gis'
 import { SOURCE_LABEL, STATUS_LABEL, THRESHOLDS, useVillage } from '../lib/village'
 import { EVENT_MODEL, useVillageEvents, type AnalyzedEvent, type EventVerdict } from '../lib/villageEvents'
-import { Evidence, Strip } from './FaultAnalysis'
-import { IconBars, IconWave } from './Icons'
+import { Strip } from './FaultAnalysis'
+import { IconWave } from './Icons'
 import { Segmented, Skeleton } from './ui'
+import WaveCompare, { type CompareRow } from './WaveCompare'
 
 const Waveform3D = lazy(() => import('./Waveform3D'))
 
@@ -61,10 +62,16 @@ interface Props {
   /** 좁은 칸에서 한 줄로 쌓아 보여 줌 */
   stacked?: boolean
   compact?: boolean
+  /** 평소/지금을 가르는 시각(ms). 없으면 화면에서 찾은 급변 시점 */
+  compareAt?: { at: number; label: string } | null
+  /** 왼쪽 칸 맨 아래에 덧붙임 (단선도 · 경과 등) */
+  extraMain?: ReactNode
+  /** 오른쪽 칸 맨 위에 덧붙임 (판정 비교 등) */
+  extraSide?: ReactNode
 }
 
 /** 마을 FRTU 파형 분석: 고장파형 분석 화면과 같은 틀(파형 · 2D/3D · AI 진단 보고서 · 파형 요약). 직류 계측이라 교류 3상과 섞지 않음 */
-export default function FrtuWaveAnalysis({ points, sourceText, verdict, rule, location, similar, liveNormal, focus, onReview, actions, stacked, compact }: Props) {
+export default function FrtuWaveAnalysis({ points, sourceText, verdict, rule, location, similar, liveNormal, focus, onReview, actions, stacked, compact, compareAt, extraMain, extraSide }: Props) {
   const [view, setView] = useState<'2d' | '3d'>('2d')
   const wave = useMemo(() => buildFrtuWave(points), [points])
   const features = useMemo(() => analyzeFrtuWave(wave), [wave])
@@ -86,7 +93,16 @@ export default function FrtuWaveAnalysis({ points, sourceText, verdict, rule, lo
   }, [wave])
 
   const onset = features.onset?.seconds ?? null
-  const dom = features.dominant
+  const hasVolt = wave.v.some((x) => Number.isFinite(x))
+
+  // 평소 vs 지금: 0초를 사건 발생(주어진 시각) 또는 급변 시점에 맞춤
+  const zero = compareAt && points[0] ? (compareAt.at - points[0].t) / 1000 : onset
+  const compareRows = useMemo<CompareRow[] | null>(() => {
+    if (zero == null) return null
+    const col = (k: FrtuWaveKey) => wave.series.find((x) => x.key === k)?.mA
+    const [ci, ch, cl] = [col('inlet'), col('house'), col('lamp')]
+    return wave.t.map((t, i) => ({ s: +(t - zero).toFixed(1), inlet: ci?.[i] ?? null, house: ch?.[i] ?? null, lamp: cl?.[i] ?? null }))
+  }, [wave, zero])
   const keys = wave.series.map((s) => s.label)
   // 고른 FRTU만 진하게, 나머지는 흐리게
   const colors = wave.series.map((s) => (focus && s.key !== focus ? `${s.color}55` : s.color))
@@ -122,61 +138,56 @@ export default function FrtuWaveAnalysis({ points, sourceText, verdict, rule, lo
             </Suspense>
           ) : (
             <>
-              <Strip title="FRTU 전류" unit="mA" keys={keys} colors={colors} data={data} onset={onset} recovery={features.recoverSeconds} height={h} first />
-              <Strip title="전압" unit="V" keys={['전압']} colors={['#14161b']} data={data} onset={onset} recovery={features.recoverSeconds} height={compact ? 96 : 120} last />
+              <Strip title="FRTU 전류" unit="mA" keys={keys} colors={colors} data={data} onset={onset} recovery={features.recoverSeconds} height={h} first last={!hasVolt} />
+              {hasVolt && <Strip title="전압" unit="V" keys={['전압']} colors={['#14161b']} data={data} onset={onset} recovery={features.recoverSeconds} height={compact ? 96 : 120} last />}
               {!wave.series.some((s) => s.key !== 'inlet') && <p className="hint">분기 INA219 값이 없는 기록이라 인입(마을 전체) 전류만 표시합니다.</p>}
               <div className="fa-xaxis">시간 (s)</div>
             </>
           )}
         </div>
-        {/* 파형 요약은 파형 바로 아래에 둠 (왼쪽 칸이 비지 않게) */}
-        <div style={{ marginTop: 14 }}>
-        <div className="fa-card">
-            <div className="fa-card-head">
-              <strong>파형 요약</strong>
-              <span className="small muted">화면에서 직접 계산 · AI 판단과 별개</span>
-            </div>
-            {!features.onset ? (
-              <p className="small muted">기록 안에서 뚜렷한 급변을 찾지 못했습니다. 기록 시작 전 이상 여부와 회복은 확인하지 못했습니다.</p>
-            ) : (
-              <div className="fa-ev-grid">
-                <Evidence icon={<IconBars />} label="피크값 변화">
-                  {dom ? (
-                    <>
-                      <div className="fa-ev-sub">{dom.label} 전류</div>
-                      <div className="fa-ev-val num">{fmtMa(dom.peakBefore)} → {fmtMa(dom.peakAfter)}</div>
-                      <div className={`fa-ev-pct ${dom.peakPct >= 0 ? 'up' : 'down'}`}>{dom.peakPct >= 0 ? '▲' : '▼'} {fmtPct(dom.peakPct)}</div>
-                    </>
-                  ) : <div className="small muted">전류 변화 작음</div>}
-                </Evidence>
-                <Evidence icon={<IconWave />} label="RMS 변화">
-                  {dom ? (
-                    <>
-                      <div className="fa-ev-sub">{dom.label} 전류</div>
-                      <div className="fa-ev-val num">{fmtMa(dom.before)} → {fmtMa(dom.after)}</div>
-                      <div className={`fa-ev-pct ${dom.rmsPct >= 0 ? 'up' : 'down'}`}>{dom.rmsPct >= 0 ? '▲' : '▼'} {fmtPct(dom.rmsPct)}</div>
-                    </>
-                  ) : <div className="small muted">전류 변화 작음</div>}
-                </Evidence>
-                <Evidence icon={<span className="fa-clock" />} label="급변 관측 시점">
-                  <div className="fa-ev-val num big">{features.onset.seconds.toFixed(1)} s</div>
-                  <div className="small muted num">샘플 {features.onset.sample.toLocaleString()} · {wave.dt ? `${wave.dt.toFixed(1)} s 간격` : ''}</div>
-                </Evidence>
-                <Evidence icon={<span className="fa-dotted" />} label="특징 패턴">
-                  <ul className="fa-patterns">
-                    {features.patterns.map((p) => <li key={p}>{p}</li>)}
-                  </ul>
-                </Evidence>
-              </div>
-            )}
+        {/* 파형 바로 아래: 평소 vs 지금 → 파형 요약 → (단선도 등) */}
+        {compareRows && !compact && (
+          <div style={{ marginTop: 14 }}>
+            <WaveCompare rows={compareRows} zeroLabel={compareAt?.label ?? '급변 관측'} />
           </div>
-        </div>
+        )}
+        {extraMain}
       </div>
 
       <aside className="fa-side">
+        {extraSide}
+        <WaveSummary wave={wave} features={features} />
         <DiagnosisReport verdict={verdict ?? null} rule={rule ?? null} location={location ?? null} similar={similar ?? null} liveNormal={liveNormal} features={features} onReview={onReview} actions={actions} compact={compact} />
 
       </aside>
+    </div>
+  )
+}
+
+/** 파형 요약: 숫자 3줄 + 특징 패턴 칩. 화면에서 직접 계산 (AI 판단과 별개) */
+export function WaveSummary({ features }: { wave?: FrtuWave; features: FrtuWaveFeatures }) {
+  const dom = features.dominant
+  // "기록 초반을 비교 기준…" 같은 안내 문구는 칩에서 빼고 마우스를 올리면 보이게
+  const patterns = features.patterns.filter((p) => !p.startsWith('기록 초반을'))
+  const pct = (x: number) => <b className={`ws-pct ${x >= 0 ? 'up' : 'down'}`}>{x >= 0 ? '▲' : '▼'}{fmtPct(x)}</b>
+  return (
+    <div className="fa-card">
+      <div className="fa-card-head">
+        <strong>파형 요약</strong>
+        <span className="xs muted" title="기록 초반을 비교 기준으로 사용 · 기록 시작 전 이상 여부는 확인 못함">화면 계산</span>
+      </div>
+      {!features.onset ? (
+        <p className="small muted" style={{ margin: 0 }}>뚜렷한 급변 없음</p>
+      ) : (
+        <>
+          <dl className="ws">
+            {dom && <div><dt>피크 <small>{dom.label}</small></dt><dd className="num">{fmtMa(dom.peakBefore)} → {fmtMa(dom.peakAfter)} {pct(dom.peakPct)}</dd></div>}
+            {dom && <div><dt>RMS <small>{dom.label}</small></dt><dd className="num">{fmtMa(dom.before)} → {fmtMa(dom.after)} {pct(dom.rmsPct)}</dd></div>}
+            <div><dt>급변 시점</dt><dd className="num">{features.onset.seconds.toFixed(1)} s</dd></div>
+          </dl>
+          {patterns.length > 0 && <div className="ws-chips">{patterns.map((p) => <span key={p}>{p}</span>)}</div>}
+        </>
+      )}
     </div>
   )
 }
@@ -221,6 +232,14 @@ function DiagnosisReport({ verdict, rule, location, similar, liveNormal, feature
   if (stale) commentary.push(`이 판정은 ${ago(Date.now() - verdict!.at)} 사건 기준이고, 지금 FRTU는 정상이에요.`)
 
   const badge = !v ? null : v.kind === 'ANSWERED' ? <span className="badge accent">진단 완료</span> : v.kind === 'WITHHELD' ? <span className="badge warn">판단 보류</span> : <span className="badge">{v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</span>
+  // 한 줄 결론: AI가 답했으면 그 원인, 아니면 보류/미판정 사유를 짧게
+  const headline = !v
+    ? { text: '아직 AI 판정 없음', sub: '전류가 급변하면 장치가 파형을 녹화해 보내고 그때 진단해요.', tone: 'none' }
+    : scored?.kind === 'ANSWERED'
+      ? { text: scored.labelKo, sub: `모델 점수 ${scored.score.toFixed(2)} · 기준 ${EVENT_MODEL.thresholds.score}`, tone: 'ok' }
+      : scored
+        ? { text: '판단 보류', sub: `근거 부족 · 1순위 후보 '${scored.labelKo}' ${scored.score.toFixed(2)}`, tone: 'warn' }
+        : { text: v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부', sub: v.reasons[0] ?? '', tone: 'none' }
   let n = 0
 
   return (
@@ -230,102 +249,87 @@ function DiagnosisReport({ verdict, rule, location, similar, liveNormal, feature
         {badge}
       </div>
       {verdict && (
-        <div className="small muted">
+        <div className="xs muted" style={{ marginTop: -4 }}>
           {verdict.title} · {ago(Date.now() - verdict.at)}
           {stale && <span className="badge" style={{ marginLeft: 6 }}>지난 사건 · 지금은 정상</span>}
         </div>
       )}
 
-      <Block n={++n} title="진단">
-        {!v ? (
-          <p className="small muted">아직 AI가 판정한 마을 사건이 없어요. 전류가 갑자기 바뀌면 장치가 사건 파형을 녹화해 보내고, 그때 진단해요.</p>
-        ) : !scored ? (
-          <>
-            <p className="fa-withheld">{v.kind === 'NO_MODEL' ? '원인 분류 모델이 아직 학습되지 않았습니다.' : '입력 점검에서 거부된 기록이라 진단하지 않았습니다.'}</p>
-            <ul className="small">{v.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
-          </>
-        ) : scored.kind === 'ANSWERED' ? (
-          <div className="fa-result" style={{ marginBottom: 0 }}>
-            <div className="pred" style={{ fontSize: 28 }}>{scored.labelKo}</div>
-            <div className="fa-score">
-              <span className="small muted">모델 점수 · 기준 {EVENT_MODEL.thresholds.score}</span>
-              <strong className="num">{scored.score.toFixed(2)}</strong>
+      {/* 요약: 결론 · 구간 · 먼저 볼 곳 세 줄만 */}
+      <div className={`dr-head ${headline.tone}`}>
+        <div className="dr-title">{headline.text}</div>
+        <div className="small muted">{headline.sub}</div>
+      </div>
+      <dl className="ws dr-sum">
+        <div><dt>고장 구간</dt><dd>{location && location.scope !== 'NO_DATA' ? (cand ? cand.section : location.title) : '—'}</dd></div>
+        {rule && <div><dt>규칙 판정</dt><dd>{rule.label.split(' — ')[0]}</dd></div>}
+        <div><dt>먼저 점검</dt><dd>{steps[0]?.label ?? (location?.scope === 'NONE' ? '필요 없음' : '—')}</dd></div>
+      </dl>
+
+      <details className="dr-more">
+        <summary>자세히 보기 <span className="xs muted">점수 · 근거 · 점검 순서 · 해설</span></summary>
+
+        {scored && (
+          <Block n={++n} title="원인별 점수">
+            <div className="scores">
+              {scored.ranking.slice(0, 3).map((r) => (
+                <div key={r.label} className={`score ${r.label === scored.label ? 'hl' : ''}`} style={{ gridTemplateColumns: '96px 1fr 40px' }}>
+                  <span>{r.labelKo}</span>
+                  <div className="bar"><div style={{ width: `${r.score * 100}%` }} /></div>
+                  <span className="num" style={{ textAlign: 'right' }}>{r.score.toFixed(2)}</span>
+                </div>
+              ))}
             </div>
-          </div>
-        ) : (
-          <>
-            <p className="fa-withheld">결과를 내지 않았습니다. 근거가 부족한 상태에서 원인을 추정하지 않습니다.</p>
-            <ul className="small">{scored.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
-          </>
+            {scored.kind === 'WITHHELD' && <ul className="small" style={{ marginTop: 6 }}>{scored.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+            <p className="hint">보정되지 않은 점수예요. 정답일 확률이 아니에요.</p>
+          </Block>
         )}
-        {scored && !compact && (
-          <div className="scores" style={{ marginTop: 10 }}>
-            {scored.ranking.slice(0, 3).map((r) => (
-              <div key={r.label} className={`score ${r.label === scored.label ? 'hl' : ''}`} style={{ gridTemplateColumns: '96px 1fr 40px' }}>
-                <span>{r.labelKo}</span>
-                <div className="bar"><div style={{ width: `${r.score * 100}%` }} /></div>
-                <span className="num" style={{ textAlign: 'right' }}>{r.score.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {scored && <p className="hint">보정되지 않은 점수입니다. 정답일 확률(신뢰도)이 아닙니다.</p>}
-      </Block>
 
-      <Block n={++n} title="고장 구간">
-        {location ? (
-          <>
-            <div className="small" style={{ color: 'var(--ink)', fontWeight: 600 }}>{location.title}</div>
+        {scored && scored.evidence.length > 0 && (
+          <Block n={++n} title="판단 근거 (기여도 큰 순)">
+            <div className="evidence">
+              {scored.evidence.slice(0, compact ? 3 : 5).map((e) => (
+                <div key={e.name} className="evidence-row">
+                  <span>{e.label}</span>
+                  <div className="meter"><i className={e.contribution >= 0 ? 'ok' : 'err'} style={{ width: `${Math.min(100, Math.abs(e.contribution) * 300)}%` }} /></div>
+                  <span className="num small">{e.value.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </Block>
+        )}
+
+        {(location || rule) && (
+          <Block n={++n} title="고장 구간 · 규칙 판정">
+            {location && <div className="small" style={{ color: 'var(--ink)', fontWeight: 600 }}>{location.title}</div>}
             {cand && <div className="small muted">{cand.section} · {cand.boundary} · 영향 고객 {cand.customers}호</div>}
-          </>
-        ) : (
-          <p className="small muted">이 기록에는 FRTU별 고장표시가 없어 구간을 좁히지 않았어요.</p>
+            {rule && <ul className="small muted" style={{ marginTop: 6 }}>{rule.lines.map((l) => <li key={l}>{l}</li>)}</ul>}
+          </Block>
         )}
-        {rule && (
-          <div className="small muted" style={{ marginTop: 6 }}>
-            규칙 판정 · <b style={{ color: 'var(--ink)' }}>{rule.label}</b>
-            <ul className="small">{rule.lines.map((l) => <li key={l}>{l}</li>)}</ul>
-          </div>
+
+        <Block n={++n} title="권고 조치">
+          {steps.length ? (
+            <ol className="small" style={{ paddingLeft: 18, margin: 0 }}>
+              {steps.slice(0, compact ? 3 : 6).map((s) => <li key={s.id}><b>{s.label}</b> <span className="muted">· {s.detail}</span></li>)}
+            </ol>
+          ) : (
+            <p className="small muted">{location && location.scope === 'NONE' ? '지금은 점검이 필요한 구간이 없어요.' : '구간이 정해지지 않아 점검 순서를 내지 않았어요.'}</p>
+          )}
+        </Block>
+
+        {similar && (
+          <Block n={++n} title="유사 사건">
+            <p className="small" style={{ margin: 0 }}>{similar.count ? <>같은 판정이 나온 지난 사건 <b>{similar.count}건</b>{similar.lastAt ? ` · 마지막 ${ago(Date.now() - similar.lastAt)}` : ''}</> : <span className="muted">같은 판정이 나온 지난 사건 없음</span>}</p>
+          </Block>
         )}
-      </Block>
 
-      {scored && scored.evidence.length > 0 && (
-        <Block n={++n} title="판단 근거 (기여도 큰 순)">
-          <div className="evidence">
-            {scored.evidence.slice(0, compact ? 3 : 5).map((e) => (
-              <div key={e.name} className="evidence-row">
-                <span>{e.label}</span>
-                <div className="meter"><i className={e.contribution >= 0 ? 'ok' : 'err'} style={{ width: `${Math.min(100, Math.abs(e.contribution) * 300)}%` }} /></div>
-                <span className="num small">{e.value.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        </Block>
-      )}
-
-      <Block n={++n} title="권고 조치">
-        {steps.length ? (
-          <ol className="small" style={{ paddingLeft: 18, margin: 0 }}>
-            {steps.slice(0, compact ? 3 : 6).map((s) => <li key={s.id}><b>{s.label}</b> <span className="muted">· {s.detail}</span></li>)}
-          </ol>
-        ) : (
-          <p className="small muted">{location && location.scope === 'NONE' ? '지금은 점검이 필요한 구간이 없어요.' : '구간이 정해지지 않아 점검 순서를 내지 않았어요. 현장 확인 후 검토 기록을 남겨 주세요.'}</p>
+        {commentary.length > 0 && (
+          <Block n={++n} title="AI 해설">
+            <p className="small" style={{ lineHeight: 1.6, margin: 0 }}>{commentary.join(' ')}</p>
+            <div className="xs muted">위 값만 이어 쓴 요약</div>
+          </Block>
         )}
-        {cand && <div className="xs muted" style={{ marginTop: 4 }}>설비 정보 출처: {cand.source}</div>}
-      </Block>
-
-      {similar && (
-        <Block n={++n} title="유사 사건">
-          <p className="small">{similar.count ? <>같은 판정이 나온 지난 마을 사건 <b>{similar.count}건</b>{similar.lastAt ? ` · 마지막 ${ago(Date.now() - similar.lastAt)}` : ''}</> : <span className="muted">같은 판정이 나온 지난 사건이 없어요.</span>}</p>
-        </Block>
-      )}
-
-      {commentary.length > 0 && (
-        <Block n={++n} title="AI 해설">
-          <p className="small" style={{ lineHeight: 1.6 }}>{commentary.join(' ')}</p>
-          <div className="xs muted">위 칸의 값만 이어 쓴 근거 기반 요약이에요. 없는 사실은 만들지 않아요.</div>
-        </Block>
-      )}
+      </details>
 
       {(onReview || actions) && (
         <div className="fa-actions">
@@ -356,7 +360,7 @@ export function similarOf(events: AnalyzedEvent[], a: AnalyzedEvent | undefined)
 }
 
 /** 실시간 마을 FRTU 값(최근 1분)으로 그리는 파형 분석. 3D 마을·AI 도우미 옆칸에서 씀 */
-export function LiveFrtuWaveAnalysis(props: Pick<Props, 'stacked' | 'compact' | 'actions' | 'focus'>) {
+export function LiveFrtuWaveAnalysis(props: Pick<Props, 'stacked' | 'compact' | 'actions' | 'focus' | 'extraMain' | 'extraSide'>) {
   const snap = useVillage()
   const events = useVillageEvents()
   if (!snap.connected) {
