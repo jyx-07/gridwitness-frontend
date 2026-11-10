@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../api'
 import { FaultLocationBox, FrtuStrip } from '../components/AiPanel'
 import { IconAlert, IconArrowRight, IconBrain, IconInbox, IconLive, IconVillage, IconWave } from '../components/Icons'
 import { Badge, ErrorState, TableSkeleton, type Tone } from '../components/ui'
-import { CHART } from '../lib/chart'
 import { frtuViews, locateFault } from '../lib/frtu'
 import { askAssistantAbout } from '../lib/panels'
 import { API_CHANGED_EVENT } from '../lib/backend'
@@ -204,8 +202,6 @@ export default function Dashboard() {
   const fiCount = Object.values(fv).filter((f) => f.fi !== 'NONE').length
   const loc = locateFault(snap, fv)
   const live = snap.connected && snap.status !== 'NO_DATA'
-  const t0 = snap.history.length ? snap.history[snap.history.length - 1].t : 0
-  const data = snap.history.map((h) => ({ t: (h.t - t0) / 1000, mA: h.i * 1000, house: h.ih != null ? h.ih * 1000 : null, lamp: h.il != null ? h.il * 1000 : null }))
 
   // AI 판정과 규칙 기반 이상을 한 표에 시간순으로
   const rows = [
@@ -234,7 +230,7 @@ export default function Dashboard() {
           value={live ? `${fiCount}/3` : '—'}
           chip={!live ? '계측값 없음' : fiCount ? loc.title.split(' (')[0] : '모두 정상'}
           icon={<IconLive />}
-          onClick={() => nav('/frtu')}
+          onClick={() => nav('/village?frtu=inlet')}
         />
       </div>
 
@@ -242,26 +238,14 @@ export default function Dashboard() {
         <section className="dash-card">
           <div className="dash-card-head">
             <h2>마을 FRTU</h2>
-            <Link to="/frtu" className="pill-link">FRTU 상세 <IconArrowRight /></Link>
+            <Link to="/village?frtu=inlet" className="pill-link">FRTU 파형 분석 <IconArrowRight /></Link>
           </div>
           {!live ? (
             <DeviceConnectCard real={snap.source === 'SERIAL'} reconnecting={snap.reconnecting} />
           ) : (
             <div className="dash-sub">
-              <FrtuStrip snap={snap} value="inlet" onPick={(id) => nav(`/frtu${id === 'inlet' ? '' : `?id=${id}`}`)} />
+              <FrtuStrip snap={snap} value="inlet" onPick={(id) => nav(`/village?frtu=${id}`)} />
               <FaultLocationBox snap={snap} />
-              <span>실시간 전류 · 인입 / 주택 분기 / 가로등 분기</span>
-              <ResponsiveContainer width="100%" height={120}>
-                <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke={CHART.grid} vertical={false} />
-                  <XAxis dataKey="t" type="number" domain={['dataMin', 0]} tick={CHART.tick} axisLine={false} tickLine={false} unit="s" />
-                  <YAxis tick={CHART.tick} axisLine={false} tickLine={false} width={40} domain={['auto', 'auto']} />
-                  <Tooltip formatter={(x) => (typeof x === 'number' ? `${x.toFixed(1)} mA` : x)} labelFormatter={(t) => `${Number(t).toFixed(1)} s`} />
-                  <Line dataKey="mA" name="인입" stroke="#2f6bff" dot={false} strokeWidth={1.8} isAnimationActive={false} />
-                  <Line dataKey="house" name="주택 분기" stroke="#e08a1e" dot={false} strokeWidth={1.4} isAnimationActive={false} connectNulls />
-                  <Line dataKey="lamp" name="가로등 분기" stroke="#24835a" dot={false} strokeWidth={1.4} isAnimationActive={false} connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
             </div>
           )}
 
@@ -277,7 +261,7 @@ export default function Dashboard() {
               <thead><tr><th>사건</th><th>판정</th><th>판정 주체</th><th className="num">점수</th><th className="num">시각</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.key} className="clickable" onClick={() => nav('/frtu')}>
+                  <tr key={r.key} className="clickable" onClick={() => nav('/village?frtu=inlet')}>
                     <td><span className="row-icon"><IconWave /></span>{r.name}</td>
                     <td><Badge tone={r.tone}>{r.text}</Badge></td>
                     <td className="muted">{r.by}</td>
