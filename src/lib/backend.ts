@@ -53,13 +53,17 @@ export function setApiBase(url: string) {
 
 const tokenKey = () => `gridwitness.api.token.${encodeURIComponent(apiBase())}`
 export function getApiToken(): string {
-  try { return sessionStorage.getItem(tokenKey()) ?? tokens.get(apiBase()) ?? '' } catch { return tokens.get(apiBase()) ?? '' }
+  // 이 탭(세션) → 이 브라우저에 기억한 코드 → 메모리 순서
+  try { return sessionStorage.getItem(tokenKey()) ?? localStorage.getItem(tokenKey()) ?? tokens.get(apiBase()) ?? '' } catch { return tokens.get(apiBase()) ?? '' }
 }
-export function setApiToken(token: string) {
+/** remember=true면 이 브라우저에 남겨 새 탭에서도 다시 넣지 않아도 됨 (시연 PC용) */
+export function setApiToken(token: string, remember = false) {
   tokens.set(apiBase(), token.trim())
   try {
     if (token.trim()) sessionStorage.setItem(tokenKey(), token.trim())
     else sessionStorage.removeItem(tokenKey())
+    if (token.trim() && remember) localStorage.setItem(tokenKey(), token.trim())
+    else localStorage.removeItem(tokenKey())
   } catch { /* 이 세션의 메모리에서 유지 */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(API_CHANGED_EVENT))
 }
