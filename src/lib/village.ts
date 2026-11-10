@@ -916,6 +916,15 @@ export function injectFault(id: ChannelId, kind: FaultKind) {
   emit()
 }
 
+/** 시연용 순간 과전류(돌입전류 흉내): 잠깐 전류가 튀었다가 저절로 돌아옴. 고장표시가 떠도 실제 고장은 아님 */
+export function injectTransient(id: ChannelId, ms = 1500) {
+  if (source !== 'MOCK') return
+  faults[id] = 'GROUND'
+  lastInjectedAt = new Date().toISOString()
+  emit()
+  setTimeout(() => { if (faults[id] === 'GROUND') { delete faults[id]; emit() } }, ms)
+}
+
 export function clearFault(id?: ChannelId) {
   if (id) delete faults[id]
   else {
