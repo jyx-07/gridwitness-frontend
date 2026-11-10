@@ -33,8 +33,9 @@ export function DeviceConnectCard({ real, reconnecting }: { real: boolean; recon
   )
 }
 
-/** 실시간 분석: 판정, 전류·전압 추이, 채널 상태, 점수가 나온 이유, 경고 이력. FRTU 상세의 탭으로 보여줌 */
-export function LiveAnalysis() {
+/** 실시간 분석: 판정, 전류·전압 추이, 채널 상태, 점수가 나온 이유, 경고 이력. FRTU 상세의 탭으로 보여줌.
+ *  compact: 3D 마을 제어판용. 제어판에 이미 있는 채널 제어·이상 이벤트와 전압 그래프·판정 근거는 빼고 한 줄로 쌓음 */
+export function LiveAnalysis({ compact = false }: { compact?: boolean }) {
   const snap = useVillage()
   const t0 = snap.history[0]?.t ?? 0
   const data = snap.history.map((h) => ({
@@ -87,7 +88,7 @@ export function LiveAnalysis() {
         <span className="small muted">켜 둔 LED 조합의 정상 전류와 실제 전류를 비교해 이상 점수를 내요 · 최근 {seconds}초</span>
       </div>
 
-      <Metrics cols={4}>
+      <Metrics cols={compact ? 2 : 4}>
         <Metric
           label="판정"
           value={<Status tone={NODE_TONE[snap.status]} live={snap.status === 'WARNING' || snap.status === 'FAULT' || snap.status === 'OUTAGE'}><span style={{ fontSize: 22, fontWeight: 600 }}>{STATUS_LABEL[snap.status]}</span></Status>}
@@ -108,7 +109,7 @@ export function LiveAnalysis() {
         <Metric label="켜진 LED" value={snap.estLit} unit="/ 5 (추정)" foot={`채널 ${onCount}개 켜짐 · ${snap.p.toFixed(2)} W`} />
       </Metrics>
 
-      <div className="section">
+      {!compact && <div className="section">
         <Section
           title="채널 현황"
           description={snap.canControl ? '스위치로 LED를 끄고 켜면 아래 그래프에 바로 나타나요.' : '이 장치는 채널 상태를 보고하지 않아 조종할 수 없어요.'}
@@ -116,9 +117,9 @@ export function LiveAnalysis() {
         >
           <Channels snap={snap} controls />
         </Section>
-      </div>
+      </div>}
 
-      <div className="grid-2 section">
+      <div className={compact ? 'stack section' : 'grid-2 section'}>
         <Section title="예상 대비 실제 전류" description={snap.zones ? '마을 전체 합계' : '마을 전체 (INA219)'}>
           <div className="legend" style={{ marginBottom: 8 }}>
             <span><i style={{ background: CHART.ink }} />실제</span>
@@ -158,8 +159,8 @@ export function LiveAnalysis() {
         </Section>
       </div>
 
-      <div className="grid-2 section">
-        <Section title="전압" description={`릴레이가 닫혀 있는데 ${THRESHOLDS.vMin.toFixed(2)} V 아래로 내려가면 점수가 오릅니다.`}>
+      <div className={compact ? 'stack section' : 'grid-2 section'}>
+        {!compact && <Section title="전압" description={`릴레이가 닫혀 있는데 ${THRESHOLDS.vMin.toFixed(2)} V 아래로 내려가면 점수가 오릅니다.`}>
           <div className="legend" style={{ marginBottom: 8 }}>
             <span><i style={{ background: CHART.ink }} />전압</span>
             <span style={{ color: CHART.err }}><i className="dash" />하한 {THRESHOLDS.vMin.toFixed(2)} V</span>
@@ -174,7 +175,7 @@ export function LiveAnalysis() {
               <Line name="전압" dataKey="v" stroke={CHART.ink} dot={false} strokeWidth={1.75} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
-        </Section>
+        </Section>}
         <Section title="이상 점수가 나온 이유" description="전류 차이와 전압 강하 중 더 큰 쪽이 점수가 됩니다.">
           <div className="stack" style={{ gap: 14 }}>
             <Reason label="전류 차이" value={byCurrent} text={`실제와 예상이 ${Math.abs(residual).toFixed(3)} A 다름 (LED ${Math.abs(ledUnits).toFixed(1)}개 분량, 2개 분량이면 1.0)`} color={scoreColor(byCurrent)} />
@@ -186,6 +187,7 @@ export function LiveAnalysis() {
         </Section>
       </div>
 
+      {!compact && <>
       <Section title="판정 근거" description="장치와 구간별 측정 상태입니다.">
         <dl className="dl-rows">
           <div><dt>릴레이</dt><dd>{snap.relay ? '닫힘 — 마을에 전원 공급' : '열림 — 마을 전체 차단'}</dd></div>
@@ -212,6 +214,7 @@ export function LiveAnalysis() {
       </Section>
 
       <HardwareFlow />
+      </>}
     </div>
   )
 }

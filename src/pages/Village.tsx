@@ -9,6 +9,7 @@ import SceneBoundary from '../components/SceneBoundary'
 import Sparkline from '../components/Sparkline'
 import { Badge, NODE_TONE, Section, Segmented, Status } from '../components/ui'
 import VillageScene from '../components/village/VillageScene'
+import { LiveAnalysis } from './LiveData'
 import { isFrtuId, type FrtuId } from '../lib/frtu'
 import { announcePanelOpen, ASSISTANT_OPEN_EVENT, INCIDENT_OPEN_EVENT } from '../lib/panels'
 import { NET_COLOR, NET_KIND_LABEL, type NetKind, type PartId } from '../lib/hardware'
@@ -328,6 +329,10 @@ export default function Village() {
           </div>
         </div>
       </Section>
+
+          <Section title="실시간 분석" actions={<Link to="/frtu?tab=live" className="small">전체 화면 →</Link>}>
+            <LiveAnalysis compact />
+          </Section>
 
           <Section title="이상 이벤트" actions={<Link to="/village/loads" className="small">부하(LED 5개) 현황 →</Link>}>
             <EventList events={snap.events} limit={4} />
