@@ -1207,7 +1207,9 @@ body { background: linear-gradient(180deg, #e6effc 0%, #f1f6fd 380px, #f6f9fe 10
   .chat-field .chat-log { max-height: calc(100dvh - 400px); }
 }
 .ai-panel { bottom: auto; max-height: calc(100% - 28px); }
-.ai-more { align-self: flex-start; padding: 13px 22px; }
+.ai-more { align-self: flex-start; padding: 7px 14px; font-size: 13px; font-weight: 500; background: transparent; color: var(--accent); border: 1px solid var(--line-strong); }
+.ai-more:hover { background: #f3f6fc; }
+.ai-more svg { width: 14px; height: 14px; }
 .reasons { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; color: var(--ink); }
 
 /* ── 잘림·겹침 보정 ───────────────────────────────── */
@@ -1261,6 +1263,8 @@ body { background-attachment: fixed; }
 .float-menu-pop { position: relative; z-index: 61; }
 @media (max-width: 1200px) { .ai-panel, .control-drawer { width: 340px; } .scene.scene-full.with-panel .scene-tools { right: 368px; } .scene.scene-full .scene-tools { flex-wrap: wrap; } }
 @media (max-width: 1000px) { .ai-panel, .control-drawer { width: auto; } .scene.scene-full.with-panel .scene-tools { right: 14px; } }
+/* FRTU 옆 패널은 차트가 잘 보이게 조금 넓게 */
+@media (min-width: 1201px) { .ai-panel { width: 470px; } .scene.scene-full.with-panel:has(.ai-panel) .scene-tools { right: 498px; } }
 .control-drawer .channel { padding: 10px 6px; }
 /* 제어판: 섹션마다 독립된 카드 */
 .control-drawer .section-card { margin: 0; padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 18px; background: #f8f9fb; box-shadow: none; }
@@ -1660,3 +1664,64 @@ body { background-attachment: fixed; }
 .live-dialog { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 20px 22px; border: 0; border-radius: 22px; background: var(--bg, #f6f7f9); box-shadow: var(--overlay-shadow); overflow: auto; }
 .live-dialog::backdrop { background: rgba(10, 16, 32, .45); backdrop-filter: blur(2px); }
 .live-dialog .ai-head { margin-bottom: 14px; }
+
+/* 사건 시트 · 평소 파형 vs 지금 파형 */
+.wc { padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.wc-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.wc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.wc-pane { padding: 10px 10px 4px; border-radius: 12px; background: #f7f8fb; }
+.wc-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.wc-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 13px; }
+.wc-table th, .wc-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.wc-table thead th { font-weight: 500; color: var(--text-2); font-size: 12px; }
+.wc-table tbody th { text-align: left; font-weight: 500; }
+.wc-table tbody th i { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+.wc-table tr.hl { background: #fff6ec; }
+.wc-table td.up { color: var(--err, #c0392b); font-weight: 600; }
+.wc-table td.down { color: var(--accent); font-weight: 600; }
+@media (max-width: 640px) { .wc-table { display: block; overflow-x: auto; } }
+
+/* 파형 요약 (오른쪽, 간결형) */
+.ws { margin: 0; }
+.ws > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ws > div:last-child { border-bottom: 0; }
+.ws dt { color: var(--text-2); white-space: nowrap; }
+.ws dt small { margin-left: 4px; font-size: 11px; color: var(--text-3, #9aa0ab); }
+.ws dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; }
+.ws-pct { margin-left: 6px; font-size: 12px; }
+.ws-pct.up { color: var(--err); }
+.ws-pct.down { color: var(--accent); }
+.ws-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ws-chips span { padding: 4px 10px; border-radius: 999px; background: #f3f5f9; font-size: 12px; color: var(--text-2); }
+
+/* AI 진단 보고서: 요약 + 자세히 보기 */
+.dr-head { margin: 10px 0 6px; padding: 12px 14px; border-radius: 14px; background: #f5f6f9; }
+.dr-head.ok { background: var(--accent-tint); }
+.dr-head.ok .dr-title { color: #1b3aa8; }
+.dr-head.warn { background: #fdf5e8; }
+.dr-head.warn .dr-title { color: var(--warn); }
+.dr-title { font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+.dr-sum dd { font-weight: 500; }
+.dr-more { margin-top: 8px; }
+.dr-more > summary { cursor: pointer; padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--accent); list-style: none; }
+.dr-more > summary::-webkit-details-marker { display: none; }
+.dr-more > summary::before { content: '▸ '; }
+.dr-more[open] > summary::before { content: '▾ '; }
+
+/* 사건 기록 현황판 · 반복 고장 구간 */
+.case-kpis { margin-bottom: 14px; }
+.case-kpis .kpi { padding: 18px 20px; gap: 10px; }
+.case-kpis .kpi-value { font-size: 32px; }
+.case-kpis .kpi-value.small { font-size: 24px; padding-top: 6px; }
+.case-kpis .kpi-value small { margin-left: 3px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+.case-kpis .kpi.warn .kpi-chip { background: #fdf2e3; color: #a35a00; }
+@media (max-width: 900px) { .case-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rf { margin-bottom: 16px; padding: 16px 20px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(20, 30, 60, .05); }
+.rf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rf-list { margin: 0; padding: 0; list-style: none; }
+.rf-list li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto auto; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.rf-list li.hot .rf-count { background: var(--err-tint); color: var(--err); }
+.rf-track { position: relative; height: 6px; border-radius: 3px; background: #eef0f4; }
+.rf-track i { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--err); border: 2px solid #fff; }
+.rf-count { padding: 3px 10px; border-radius: 999px; background: #f1f3f7; font-weight: 700; font-size: 13px; }
+@media (max-width: 700px) { .rf-list li { grid-template-columns: 1fr auto; } .rf-track { grid-column: 1 / -1; order: 3; } }
