@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AiPanel from '../components/AiPanel'
 import Channels from '../components/Channels'
 import EventList from '../components/EventList'
@@ -105,8 +105,7 @@ export default function Village() {
   const [params] = useSearchParams()
   const [frtu, setFrtu] = useState<FrtuId | null>(() => (isFrtuId(params.get('frtu')) ? (params.get('frtu') as FrtuId) : params.get('ai') === '1' ? 'inlet' : null))
   const [controls, setControls] = useState(false)
-  const liveDlg = useRef<HTMLDialogElement>(null)
-  const [liveOpen, setLiveOpen] = useState(false)
+  const nav = useNavigate()
   // AI 도우미가 열리면 화면의 카드 패널(FRTU 요약·제어판·LED 상세)은 내려감
   useEffect(() => {
     const onAssistant = () => {
@@ -251,7 +250,7 @@ export default function Village() {
           </div>
         )}
         {!underground && !frtu && <div className="scene-hint glass">전봇대의 FRTU 함을 누르면 계측·고장표시가 열려요</div>}
-        {frtu && !underground && <AiPanel snap={snap} frtu={frtu} onPick={setFrtu} onClose={() => setFrtu(null)} onOpenWave={() => { setLiveOpen(true); liveDlg.current?.showModal() }} />}
+        {frtu && !underground && <AiPanel snap={snap} frtu={frtu} onPick={setFrtu} onClose={() => setFrtu(null)} />}
 
         {underground && part && <PartPanel id={part} snap={snap} onClose={() => setPart(null)} />}
         {sel && selView && !underground && (
@@ -332,7 +331,7 @@ export default function Village() {
         </div>
       </Section>
 
-          <Section title="FRTU 파형 분석" actions={<button type="button" className="btn btn-sm" onClick={() => { setLiveOpen(true); liveDlg.current?.showModal() }}>크게 보기</button>}>
+          <Section title="FRTU 파형 분석" actions={<button type="button" className="btn btn-sm" onClick={() => nav('/frtu')}>크게 보기</button>}>
             <LiveFrtuWaveAnalysis stacked compact />
           </Section>
 
@@ -342,14 +341,6 @@ export default function Village() {
 
         </aside>
       )}
-      {/* 페이지를 떠나지 않고 실시간 분석 전체를 팝업으로 (ESC·바깥 클릭으로 닫힘) */}
-      <dialog ref={liveDlg} className="live-dialog" aria-label="FRTU 파형 분석" onClose={() => setLiveOpen(false)} onClick={(e) => { if (e.target === e.currentTarget) liveDlg.current?.close() }}>
-        <div className="ai-head">
-          <strong>FRTU 파형 분석 · 실시간</strong>
-          <button className="btn btn-ghost btn-icon" onClick={() => liveDlg.current?.close()} aria-label="닫기"><IconX /></button>
-        </div>
-        {liveOpen && <LiveFrtuWaveAnalysis />}
-      </dialog>
       </div>
     </div>
   )
