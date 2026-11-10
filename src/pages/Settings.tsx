@@ -4,7 +4,7 @@ import ChannelMap from '../components/ChannelMap'
 import DevicePanel from '../components/DevicePanel'
 import { PageHeader } from '../components/ui'
 import { useActor } from '../lib/actor'
-import { apiBase, assistantStatusLabel, checkCapabilities, checkHealth, DEFAULT_API, getApiToken, setApiBase, setApiToken, useBackendHealth, useCapabilities } from '../lib/backend'
+import { apiBase, assistantStatusDescription, assistantStatusLabel, checkCapabilities, checkHealth, DEFAULT_API, getApiToken, setApiBase, setApiToken, useBackendHealth, useCapabilities } from '../lib/backend'
 import { AI_MODELS } from '../lib/models'
 import { NOMINAL_V, useVillage } from '../lib/village'
 
@@ -73,7 +73,7 @@ export default function Settings() {
         </div>
       </Row>
 
-      <Row title="LLM·분석기 연결 상태" description="서버 연결, 고장파형 분류 모델, 대화 LLM의 준비 상태를 각각 확인합니다. 마을 상태 도우미는 실측 기록을 읽는 규칙 방식입니다.">
+      <Row title="LLM·분석기 연결 상태" description={`서버 연결, 고장파형 분류 모델, 대화 LLM의 준비 상태를 각각 확인합니다. ${assistantStatusDescription}`}>
         <div className="stack">
           {capabilities.state === 'checking' && <p role="status">연결 상태를 확인하고 있어요…</p>}
           {capabilities.state === 'down' && <p className="text-bad" role="status">{capabilities.detail}</p>}

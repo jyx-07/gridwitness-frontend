@@ -47,6 +47,10 @@ test('LLM availability is described as an endpoint probe, not proof of a usable 
   assert.equal(backend.assistantStatusLabel({ configured: true, model: 'qwen2.5:3b', available: null }), 'LLM 설정됨 · 모델 목록 확인 중')
 })
 
+test('settings describe the village assistant as server LLM with an explicit rules fallback', () => {
+  assert.equal(backend.assistantStatusDescription, '파형 사건 대화와 마을 FRTU 도우미는 서버 LLM에 근거를 보내 답변을 요청합니다. LLM을 사용할 수 없으면 규칙 답변으로 대체하며, 답변마다 실제 사용 방식을 표시합니다.')
+})
+
 test('KEPCO usage requests use the shared API base and include the configured access token', async () => {
   backend.setApiToken('kepco-token')
   let request
