@@ -1,10 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import { getVillageRecordState, retryVillageRecords, useVillagePersistence } from '../api/village'
-import { findRecorded, IncidentWave, StageBar } from '../components/LiveIncident'
-import { InspectionCard } from '../components/SingleLineDiagram'
+import FrtuWaveAnalysis, { similarOf, verdictInfo } from '../components/FrtuWaveAnalysis'
+import { findRecorded, IncidentTrail, StageBar } from '../components/LiveIncident'
 import { Badge, Empty, PageHeader } from '../components/ui'
 import { FRTUS } from '../lib/frtu'
-import { inspectionCandidate } from '../lib/gis'
 import { FI_SHORT, useLiveIncidents } from '../lib/liveIncident'
 import { askAssistantVillage } from '../lib/panels'
 import type { EventVerdict } from '../lib/villageEvents'
@@ -52,10 +51,9 @@ export default function IncidentDetail() {
   const live = !inc.clearedAt
   const recorded = findRecorded(inc, events)
   const v = recorded?.verdict
-  const scored = v && (v.kind === 'ANSWERED' || v.kind === 'WITHHELD') ? v : null
-  const cand = inspectionCandidate(inc.scope)
   const cmp = compare(inc.cause, v)
   const stored = getVillageRecordState(inc.recordId)
+  const points = inc.points.map((p) => ({ ...p, v: Number.NaN }))
 
   return (
     <>
@@ -84,77 +82,43 @@ export default function IncidentDetail() {
         <button type="button" className="chat-link" disabled={persistence.syncing} onClick={() => { void retryVillageRecords() }}>저장 재시도</button>
       </div>
 
-      <div className="fa">
-        <div className="fa-main">
-          <div className="fa-panel">
-            <IncidentWave inc={inc} recorded={recorded} height={260} />
+      {/* FRTU 파형 분석과 같은 틀: 파형(2D/3D) · 평소 vs 지금 · 파형 요약 · 경과·단선도 | 판정 비교 · AI 진단 보고서 */}
+      <FrtuWaveAnalysis
+        points={points}
+        sourceText={inc.source === 'MOCK' ? '시뮬레이터' : '실측'}
+        verdict={verdictInfo(recorded)}
+        similar={similarOf(events, recorded)}
+        rule={{ label: inc.cause, lines: inc.reasons }}
+        location={{ scope: inc.scope, title: inc.title }}
+        compareAt={{ at: inc.startedAt, label: '고장표시 발생' }}
+        extraMain={
+          <div className="fa-card" style={{ marginTop: 14 }}>
+            <div className="fa-card-head"><strong>사건 경과 · 고장 구간</strong></div>
+            <IncidentTrail inc={inc} recorded={recorded} />
           </div>
-        </div>
-
-        <aside className="fa-side">
+        }
+        extraSide={
           <div className="fa-card">
             <div className="fa-card-head">
-              <strong>원인 분석</strong>
+              <strong>판정 비교</strong>
               <Badge tone={cmp.tone === 'ok' ? 'ok' : cmp.tone === 'warn' ? 'warn' : 'neutral'}>{cmp.tone === 'ok' ? '판정 일치' : cmp.tone === 'warn' ? '확인 필요' : '규칙 판정만'}</Badge>
             </div>
-
-            <div className="is-card" style={{ marginBottom: 10 }}>
-              <span>① 계측값 규칙 판정 <small>지금 전류·전압 값</small></span>
-              <strong>{inc.cause}</strong>
-              <ul className="small" style={{ marginTop: 6 }}>{inc.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+            <div className="small muted" style={{ marginBottom: 6 }}>FRTU별 고장표시</div>
+            <div className="is-fi" style={{ marginBottom: 10 }}>
+              {FRTUS.map((f) => (
+                <div key={f.id} className={inc.fi[f.id] !== 'NONE' ? 'hit' : ''}>
+                  <span>{f.short}</span>
+                  <b>{FI_SHORT[inc.fi[f.id]]}</b>
+                </div>
+              ))}
             </div>
-
-            <div className="is-card" style={{ marginBottom: 10 }}>
-              <span>② 사건 파형 AI 판정 <small>{recorded ? `우노 녹화 · 사건 #${recorded.e.ev}` : '녹화 없음'}</small></span>
-              {!v ? (
-                <strong className="muted">판정 없음</strong>
-              ) : !scored ? (
-                <strong>{v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</strong>
-              ) : (
-                <>
-                  <strong>{scored.kind === 'ANSWERED' ? `${scored.labelKo} · 점수 ${scored.score.toFixed(2)}` : `판단 보류 (1순위 ${scored.labelKo} ${scored.score.toFixed(2)})`}</strong>
-                  <div className="scores" style={{ marginTop: 8 }}>
-                    {scored.ranking.slice(0, 3).map((r) => (
-                      <div key={r.label} className={`score ${r.label === scored.label ? 'hl' : ''}`} style={{ gridTemplateColumns: '96px 1fr 40px' }}>
-                        <span>{r.labelKo}</span>
-                        <div className="bar"><div style={{ width: `${r.score * 100}%` }} /></div>
-                        <span className="num" style={{ textAlign: 'right' }}>{r.score.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {scored.evidence.length > 0 && (
-                    <div className="small muted" style={{ marginTop: 6 }}>주요 근거: {scored.evidence.slice(0, 3).map((e) => `${e.label} ${e.value.toFixed(2)}`).join(' · ')}</div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <div className="small muted" style={{ marginBottom: 6 }}>③ FRTU별 고장표시</div>
-              <div className="is-fi">
-                {FRTUS.map((f) => (
-                  <div key={f.id} className={inc.fi[f.id] !== 'NONE' ? 'hit' : ''}>
-                    <span>{f.short}</span>
-                    <b>{FI_SHORT[inc.fi[f.id]]}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className={`alert ${cmp.tone === 'ok' ? 'alert-ok' : cmp.tone === 'warn' ? 'alert-warn' : 'alert-info'} small`} style={{ margin: 0 }}>
-              <span><strong>판정 비교</strong> · {cmp.text}</span>
+              <span>계측값 규칙 <b>{inc.cause.split(' — ')[0]}</b> · {cmp.text}</span>
             </div>
-            {scored && <p className="hint">AI 점수는 보정되지 않은 점수예요. 정답일 확률(신뢰도)이 아니에요.</p>}
           </div>
-
-          <div className="fa-card">
-            <div className="fa-card-head"><strong>권고 조치</strong></div>
-            {cand ? <InspectionCard candidate={cand} /> : <p className="small muted">구간을 좁히지 못해 점검 순서를 내지 않았어요. 인입 쪽 전원부터 확인해 주세요.</p>}
-          </div>
-
-          <p className="xs muted">직류 모형 계측으로 낸 결과예요. 실제 현장에서는 이 자리에 FRTU가 녹화한 교류 고장파형과 그 AI 분석이 들어가요.</p>
-        </aside>
-      </div>
+        }
+      />
+      <p className="xs muted" style={{ marginTop: 10 }}>직류 모형 계측 · 전류만 기록 (실제 현장은 교류 고장파형)</p>
     </>
   )
 }
