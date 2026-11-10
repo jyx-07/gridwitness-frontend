@@ -8,6 +8,7 @@ import { Strip } from './FaultAnalysis'
 import { IconWave } from './Icons'
 import { Segmented, Skeleton } from './ui'
 import WaveCompare, { type CompareRow } from './WaveCompare'
+import { Gauge, Src } from './AiExplain'
 
 const Waveform3D = lazy(() => import('./Waveform3D'))
 
@@ -174,7 +175,7 @@ export function WaveSummary({ features }: { wave?: FrtuWave; features: FrtuWaveF
     <div className="fa-card">
       <div className="fa-card-head">
         <strong>파형 요약</strong>
-        <span className="xs muted" title="기록 초반을 비교 기준으로 사용 · 기록 시작 전 이상 여부는 확인 못함">화면 계산</span>
+        <Src kind="calc" />
       </div>
       {!features.onset ? (
         <p className="small muted" style={{ margin: 0 }}>뚜렷한 급변 없음</p>
@@ -257,12 +258,13 @@ function DiagnosisReport({ verdict, rule, location, similar, liveNormal, feature
 
       {/* 요약: 결론 · 구간 · 먼저 볼 곳 세 줄만 */}
       <div className={`dr-head ${headline.tone}`}>
+        {v && <Src kind="model" />}
         <div className="dr-title">{headline.text}</div>
         <div className="small muted">{headline.sub}</div>
       </div>
       <dl className="ws dr-sum">
         <div><dt>고장 구간</dt><dd>{location && location.scope !== 'NO_DATA' ? (cand ? cand.section : location.title) : '—'}</dd></div>
-        {rule && <div><dt>규칙 판정</dt><dd>{rule.label.split(' — ')[0]}</dd></div>}
+        {rule && <div><dt>규칙 판정 <Src kind="rule" /></dt><dd>{rule.label.split(' — ')[0]}</dd></div>}
         <div><dt>먼저 점검</dt><dd>{steps[0]?.label ?? (location?.scope === 'NONE' ? '필요 없음' : '—')}</dd></div>
       </dl>
 
@@ -279,6 +281,10 @@ function DiagnosisReport({ verdict, rule, location, similar, liveNormal, feature
                   <span className="num" style={{ textAlign: 'right' }}>{r.score.toFixed(2)}</span>
                 </div>
               ))}
+            </div>
+            <div className="gauges" style={{ marginTop: 10 }}>
+              <Gauge label="1순위 점수" note="충분히 뚜렷한가" value={scored.ranking[0]?.score ?? 0} limit={EVENT_MODEL.thresholds.score} />
+              {scored.ranking[1] && <Gauge label="1·2위 점수 차" note="두 유형을 가를 수 있는가" value={scored.ranking[0].score - scored.ranking[1].score} limit={EVENT_MODEL.thresholds.margin} max={Math.max(0.5, EVENT_MODEL.thresholds.margin * 2)} />}
             </div>
             {scored.kind === 'WITHHELD' && <ul className="small" style={{ marginTop: 6 }}>{scored.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
             <p className="hint">보정되지 않은 점수예요. 정답일 확률이 아니에요.</p>
@@ -324,9 +330,9 @@ function DiagnosisReport({ verdict, rule, location, similar, liveNormal, feature
         )}
 
         {commentary.length > 0 && (
-          <Block n={++n} title="AI 해설">
+          <Block n={++n} title="근거 요약">
             <p className="small" style={{ lineHeight: 1.6, margin: 0 }}>{commentary.join(' ')}</p>
-            <div className="xs muted">위 값만 이어 쓴 요약</div>
+            <div className="xs muted"><Src kind="summary" /> 위 값만 이어 쓴 문장이에요. LLM이 아니에요.</div>
           </Block>
         )}
       </details>

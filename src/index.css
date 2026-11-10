@@ -1725,3 +1725,60 @@ body { background-attachment: fixed; }
 .rf-track i { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--err); border: 2px solid #fff; }
 .rf-count { padding: 3px 10px; border-radius: 999px; background: #f1f3f7; font-weight: 700; font-size: 13px; }
 @media (max-width: 700px) { .rf-list li { grid-template-columns: 1fr auto; } .rf-track { grid-column: 1 / -1; order: 3; } }
+
+/* 출처 배지 */
+.src { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; vertical-align: middle; cursor: help; }
+.src-model { background: #e8eefc; color: #2747b8; }
+.src-calc { background: #e7f4ee; color: #1d7148; }
+.src-rule { background: #f1f1f4; color: #545a66; }
+.src-llm { background: #f3e9fb; color: #7a3db0; }
+.src-summary { background: #f1f1f4; color: #545a66; }
+.src-human { background: #fdf2e3; color: #a35a00; }
+.dr-head .src { margin-bottom: 6px; }
+.ws dt .src { margin-left: 4px; }
+
+/* AI 판단 4단계 띠 */
+.aiflow { padding: 12px 14px; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+.aiflow ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.aiflow li { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 10px; background: #f6f7fa; min-width: 0; }
+.aiflow li div { display: flex; flex-direction: column; min-width: 0; }
+.aiflow li b { font-size: 12.5px; color: var(--ink); }
+.aiflow li div span { font-size: 11.5px; color: var(--text-2); overflow-wrap: anywhere; }
+.aiflow-n { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #dfe2e8; color: #fff; font-size: 11px; font-weight: 700; }
+.aiflow li.ok { background: #eef8f2; }
+.aiflow li.ok .aiflow-n { background: var(--ok); }
+.aiflow li.warn { background: #fdf5e8; }
+.aiflow li.warn .aiflow-n { background: #e09b2d; }
+.aiflow li.err { background: var(--err-tint); }
+.aiflow li.err .aiflow-n { background: var(--err); }
+.aiflow-note { margin: 8px 2px 0; font-size: 12px; color: var(--text-2); }
+@media (max-width: 1300px) { .aiflow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 보류 기준 게이지 */
+.gauges { display: grid; gap: 10px; }
+.gauge-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+.gauge-top small { margin-left: 4px; font-size: 11px; color: var(--text-2); font-weight: 400; }
+.gauge-top b.ok { color: var(--ok); }
+.gauge-top b.bad { color: var(--err); }
+.gauge-track { position: relative; height: 8px; margin-top: 4px; border-radius: 4px; background: #eef0f4; }
+.gauge-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.gauge-track i.ok { background: var(--ok); }
+.gauge-track i.bad { background: var(--err); }
+.gauge-track em { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); }
+.gauge-foot { margin-top: 2px; font-size: 11px; color: var(--text-2); text-align: right; }
+
+/* 모델 한눈 카드 */
+.mg { padding: 18px 20px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(20, 30, 60, .05); }
+.mg-loading { height: 150px; }
+.mg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.mg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.mg-grid > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mg-k { font-size: 12px; color: var(--text-2); }
+.mg-s { font-size: 12px; color: var(--text-2); }
+.mg-big { font-size: 28px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.mg-labels, .mg-no { margin: 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 3px; }
+.mg-labels b { display: inline-block; min-width: 34px; color: #2747b8; }
+.mg-labels span { color: var(--text-2); font-size: 12px; }
+.mg-no li::before { content: '✕ '; color: var(--err); }
+@media (max-width: 1000px) { .mg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fa-side .aiflow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
