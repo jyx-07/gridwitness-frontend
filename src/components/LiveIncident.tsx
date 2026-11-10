@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../api'
 import { getActor } from '../lib/actor'
-import { CHART } from '../lib/chart'
 import { FRTUS } from '../lib/frtu'
 import { assignIncident, dismissIncident, FI_SHORT, markIncidentRegistered, observeVillage, openIncident, setIncidentStage, STAGE_LABEL, STAGES, useLiveIncidents, type LiveIncident } from '../lib/liveIncident'
 import { ASSISTANT_OPEN_EVENT, askAssistantVillage, INCIDENT_OPEN_EVENT, PANEL_OPEN_EVENT } from '../lib/panels'
@@ -12,6 +10,7 @@ import { useVillageEvents, type AnalyzedEvent } from '../lib/villageEvents'
 import { inspectionCandidate } from '../lib/gis'
 import { alertIncident } from '../lib/notify'
 import { IconX } from './Icons'
+import WaveCompare, { incidentRows } from './WaveCompare'
 import SingleLineDiagram from './SingleLineDiagram'
 import { Badge } from './ui'
 
@@ -151,28 +150,12 @@ export function findRecorded(inc: LiveIncident, events: AnalyzedEvent[]): Analyz
   return events.find((a) => a.recordId === inc.rawEventRecordId) ?? events.find((a) => (a.e.source ?? 'SERIAL') === inc.source && Math.abs(new Date(a.e.receivedAt).getTime() - inc.startedAt) < 8000)
 }
 
-/** 사건 전후 전류 파형 · 시간순 경과 · 단선도 */
-export function IncidentWave({ inc, recorded, height = 230 }: { inc: LiveIncident; recorded?: AnalyzedEvent; height?: number }) {
+/** 사건 경과(시간순) · 단선도 */
+export function IncidentTrail({ inc, recorded }: { inc: LiveIncident; recorded?: AnalyzedEvent }) {
   const live = !inc.clearedAt
-  const data = inc.points.map((p) => ({ s: +((p.t - inc.startedAt) / 1000).toFixed(1), inlet: p.i * 1000, house: p.ih != null ? p.ih * 1000 : null, lamp: p.il != null ? p.il * 1000 : null }))
   const cand = inspectionCandidate(inc.scope)
   return (
     <>
-      <div className="is-sub">사건 전후 전류 (mA) · 0초 = 고장표시 발생</div>
-      <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={data} margin={{ top: 18, right: 10, left: -6, bottom: 0 }}>
-          <CartesianGrid stroke={CHART.grid} vertical={false} />
-          <XAxis dataKey="s" type="number" domain={['dataMin', 'dataMax']} unit="s" tick={CHART.tick} axisLine={false} tickLine={false} />
-          <YAxis tick={CHART.tick} axisLine={false} tickLine={false} width={42} domain={[0, 'auto']} />
-          <Tooltip formatter={(x) => (typeof x === 'number' ? `${x.toFixed(1)} mA` : x)} labelFormatter={(t) => `${t} s`} />
-          <Legend iconType="plainline" wrapperStyle={{ fontSize: 12 }} />
-          <ReferenceLine x={0} stroke="#d64545" strokeDasharray="4 3" label={{ value: '발생', position: 'top', fontSize: 11, fill: '#d64545' }} />
-          {inc.clearedAt && <ReferenceLine x={+((inc.clearedAt - inc.startedAt) / 1000).toFixed(1)} stroke="#1f9d55" strokeDasharray="4 3" label={{ value: '복구', position: 'top', fontSize: 11, fill: '#1f9d55' }} />}
-          <Line name="인입" dataKey="inlet" stroke="#2f6bff" dot={false} strokeWidth={1.8} isAnimationActive={false} />
-          <Line name="주택 분기" dataKey="house" stroke="#e08a1e" dot={false} strokeWidth={1.5} isAnimationActive={false} connectNulls />
-          <Line name="가로등 분기" dataKey="lamp" stroke="#24835a" dot={false} strokeWidth={1.5} isAnimationActive={false} connectNulls />
-        </LineChart>
-      </ResponsiveContainer>
       <ol className="is-timeline">
         <li className="err"><b>{new Date(inc.startedAt).toLocaleTimeString('ko-KR', { hour12: false })}</b> 고장표시 발생</li>
         {recorded && <li><b>{new Date(recorded.e.receivedAt).toLocaleTimeString('ko-KR', { hour12: false })}</b> FRTU가 사건 파형 녹화·전송</li>}
@@ -222,6 +205,7 @@ function SheetBody({ inc }: { inc: LiveIncident }) {
             </div>
           ))}
         </div>
+        <WaveCompare rows={incidentRows(inc)} />
         <div className="is-actions">
           <button type="button" className="btn btn-sm btn-primary" onClick={open}>상세 원인 분석 보기</button>
           <button type="button" className="btn btn-sm" onClick={askAssistantVillage}>AI에게 묻기</button>

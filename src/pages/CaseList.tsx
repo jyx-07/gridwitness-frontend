@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { DiagnosisBadge } from '../components/Badges'
+import { CaseKpis, RepeatFaults } from '../components/CaseOverview'
 import { IconAnalysis, IconPlus } from '../components/Icons'
 import ModelCardPanel from '../components/ModelCardPanel'
 import { Badge, Empty, ErrorState, PageHeader, Segmented, TableSkeleton } from '../components/ui'
 import { fmtTime } from '../lib/actor'
 import { API_CHANGED_EVENT } from '../lib/backend'
 import { APPROVAL_LABEL, APPROVAL_TONE, approvalLog, summaryStatus, useApprovals, type ApprovalStatus } from '../lib/approval'
+import { useLiveIncidents } from '../lib/liveIncident'
 import type { CaseSummary } from '../types'
 
 type Filter = 'ALL' | ApprovalStatus
@@ -36,6 +38,7 @@ export default function CaseList() {
   }, [load])
 
   const approvals = useApprovals()
+  const { incidents } = useLiveIncidents()
   const statusOf = (c: CaseSummary) => summaryStatus(c, approvalLog(approvals, c.id))
   const match = (c: CaseSummary, f: Filter) => (kind === 'ALL' || c.caseType === kind) && (f === 'ALL' || statusOf(c) === f)
   const shown = cases?.filter((c) => match(c, filter))
@@ -46,7 +49,7 @@ export default function CaseList() {
     <>
       <PageHeader
         title="사건 기록"
-        description="지금까지의 사고를 정리하는 기록이에요. 사건은 등록 → 분석 → 담당자 검토 → 다른 사람의 최종 승인을 거쳐야 확정되고, 확정된 사건만 사고 기록과 AI 학습 데이터로 씁니다."
+        description="등록 → 분석 → 담당자 검토 → 최종 승인(다른 사람)을 거쳐 확정된 사건만 사고 기록과 AI 학습 데이터로 씁니다."
         actions={
           <Link to="/cases/new" className="btn btn-primary">
             <IconPlus />
@@ -55,6 +58,9 @@ export default function CaseList() {
         }
       />
       {cases?.some((c) => c.sync?.error) && <div className="alert alert-warn" role="status">{cases.find((c) => c.sync?.error)?.sync?.error} <button className="btn btn-sm" onClick={load}>다시 불러오기</button></div>}
+
+      <CaseKpis cases={cases} statusOf={statusOf} incidents={incidents} />
+      <RepeatFaults incidents={incidents} />
 
       <div className="row gap" style={{ marginBottom: 10 }}>
         <Segmented value={kind} onChange={setKind} options={(Object.keys(KIND_LABEL) as Kind[]).map((k) => ({ value: k, label: `${KIND_LABEL[k]} ${cases ? (k === 'ALL' ? cases.length : cases.filter((c) => c.caseType === k).length) : ''}` }))} />

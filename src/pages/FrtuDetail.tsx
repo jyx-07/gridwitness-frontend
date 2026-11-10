@@ -2,7 +2,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { FrtuStrip } from '../components/AiPanel'
 import { LiveFrtuWaveAnalysis } from '../components/FrtuWaveAnalysis'
 import { PageHeader } from '../components/ui'
-import { isFrtuId, type FrtuId } from '../lib/frtu'
+import SingleLineDiagram from '../components/SingleLineDiagram'
+import { frtuViews, isFrtuId, locateFault, type FrtuId } from '../lib/frtu'
+import { inspectionCandidate } from '../lib/gis'
 import { useVillage } from '../lib/village'
 
 /** FRTU 파형 분석 페이지: 3D 마을 옆 패널에서 "FRTU 파형 분석 열기"로 들어옴. 파형 · 2D/3D · AI 진단 보고서 · 파형 요약 */
@@ -10,6 +12,10 @@ export default function FrtuDetail() {
   const [params, setParams] = useSearchParams()
   const id: FrtuId = isFrtuId(params.get('id')) ? (params.get('id') as FrtuId) : 'inlet'
   const snap = useVillage()
+  const views = frtuViews(snap)
+  const loc = locateFault(snap, views)
+  const cand = inspectionCandidate(loc.scope)
+  const fi = { inlet: views.inlet.fi, house: views.house.fi, lamp: views.lamp.fi }
   return (
     <>
       <PageHeader
@@ -21,7 +27,15 @@ export default function FrtuDetail() {
       <div style={{ marginBottom: 14 }}>
         <FrtuStrip snap={snap} value={id} onPick={(next) => setParams(next === 'inlet' ? {} : { id: next }, { replace: true })} />
       </div>
-      <LiveFrtuWaveAnalysis focus={id} />
+      <LiveFrtuWaveAnalysis
+        focus={id}
+        extraMain={
+          <div className="fa-card" style={{ marginTop: 14 }}>
+            <div className="fa-card-head"><strong>고장 구간</strong><span className="small muted">{loc.title}</span></div>
+            <SingleLineDiagram highlight={cand?.branches} fi={fi} candidate={cand} />
+          </div>
+        }
+      />
     </>
   )
 }
