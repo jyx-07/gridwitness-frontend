@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { analyzeFrtuWave, buildFrtuWave, type FrtuWave, type FrtuWaveFeatures, type FrtuWaveKey, type FrtuWavePoint } from '../lib/frtuWave'
 import { FI_LABEL, frtuViews, locateFault, type FaultScope } from '../lib/frtu'
 import { inspectionCandidate } from '../lib/gis'
-import { SOURCE_LABEL, STATUS_LABEL, THRESHOLDS, useVillage } from '../lib/village'
+import { connectSerial, SOURCE_LABEL, STATUS_LABEL, switchToMock, THRESHOLDS, useVillage } from '../lib/village'
 import { EVENT_MODEL, useVillageEvents, type AnalyzedEvent, type EventVerdict } from '../lib/villageEvents'
 import { Strip } from './FaultAnalysis'
 import { IconWave } from './Icons'
@@ -369,9 +369,19 @@ export function similarOf(events: AnalyzedEvent[], a: AnalyzedEvent | undefined)
 export function LiveFrtuWaveAnalysis(props: Pick<Props, 'stacked' | 'compact' | 'actions' | 'focus' | 'extraMain' | 'extraSide'>) {
   const snap = useVillage()
   const events = useVillageEvents()
-  if (!snap.connected) {
-    return <div className="alert alert-warn small">장치가 연결되지 않아 지금 들어오는 FRTU 계측값이 없어요. 설정에서 장치를 다시 연결하거나 시뮬레이터로 바꿔 주세요.</div>
-  }
+  // 장치가 끊겨도 화면이 비지 않게: 바로 바꿀 수 있는 버튼 + 끊기기 전 마지막 기록
+  const offline = !snap.connected
+  const hasLast = snap.history.length >= 2
+  const offlineBar = offline && (
+    <div className="alert alert-warn small offline-bar" role="status">
+      <span><b>장치 연결 끊김</b> · 지금 들어오는 계측값이 없어요.{hasLast ? ' 아래는 끊기기 전 마지막 기록이에요.' : ''}</span>
+      <span className="row gap">
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => void switchToMock()}>시뮬레이터로 보기</button>
+        {snap.source === 'SERIAL' && <button type="button" className="btn btn-sm" onClick={() => void connectSerial()}>장치 다시 연결</button>}
+      </span>
+    </div>
+  )
+  if (offline && !hasLast) return offlineBar
   const views = frtuViews(snap)
   const f = views.inlet
   const loc = locateFault(snap, views)
@@ -380,9 +390,11 @@ export function LiveFrtuWaveAnalysis(props: Pick<Props, 'stacked' | 'compact' | 
     lines: [`인입 이상 점수 ${f.score.toFixed(2)} (주의 ${THRESHOLDS.warn} · 이상 ${THRESHOLDS.fault})`],
   }
   return (
+    <>
+    {offlineBar}
     <FrtuWaveAnalysis
       points={snap.history}
-      sourceText={SOURCE_LABEL[snap.source]}
+      sourceText={offline ? `${SOURCE_LABEL[snap.source]} · 마지막 기록` : SOURCE_LABEL[snap.source]}
       verdict={verdictInfo(events[0])}
       similar={similarOf(events, events[0])}
       rule={rule}
@@ -390,5 +402,6 @@ export function LiveFrtuWaveAnalysis(props: Pick<Props, 'stacked' | 'compact' | 
       liveNormal={loc.scope === 'NONE'}
       {...props}
     />
+    </>
   )
 }
