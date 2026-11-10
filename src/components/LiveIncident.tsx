@@ -11,6 +11,8 @@ import { inspectionCandidate } from '../lib/gis'
 import { alertIncident } from '../lib/notify'
 import { IconX } from './Icons'
 import WaveCompare, { incidentRows } from './WaveCompare'
+import FiCheckBox from './FiCheckBox'
+import { fiCrossCheck } from '../lib/fiCheck'
 import SingleLineDiagram from './SingleLineDiagram'
 import { Badge } from './ui'
 
@@ -173,7 +175,8 @@ function SheetBody({ inc }: { inc: LiveIncident }) {
   const now = useNow(live)
   const events = useVillageEvents()
   const nav = useNavigate()
-  const v = findRecorded(inc, events)?.verdict
+  const rec = findRecorded(inc, events)
+  const v = rec?.verdict
   const open = () => { openIncident(null); nav(`/incidents/${inc.recordId}`) }
 
   return (
@@ -194,9 +197,10 @@ function SheetBody({ inc }: { inc: LiveIncident }) {
         {v && (
           <div className="is-card">
             <span>사건 파형 AI <small>우노 녹화</small></span>
-            <strong>{v.kind === 'ANSWERED' ? `${v.labelKo} · ${Math.round(v.score * 100)}%` : v.kind === 'WITHHELD' ? `판단 보류 (1순위 ${v.labelKo})` : v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</strong>
+            <strong>{v.kind === 'ANSWERED' ? `${v.labelKo} · 점수 ${v.score.toFixed(2)}` : v.kind === 'WITHHELD' ? `판단 보류 (1순위 ${v.labelKo})` : v.kind === 'NO_MODEL' ? '모델 학습 전' : '입력 거부'}</strong>
           </div>
         )}
+        <FiCheckBox check={fiCrossCheck(inc, rec)} compact />
         <div className="is-fi">
           {FRTUS.map((f) => (
             <div key={f.id} className={inc.fi[f.id] !== 'NONE' ? 'hit' : ''}>

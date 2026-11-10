@@ -4,7 +4,10 @@ import { api } from '../api'
 import type { ApprovalStatus } from '../lib/approval'
 import { inspectionCandidate } from '../lib/gis'
 import type { LiveIncident } from '../lib/liveIncident'
+import { fmtDur, incidentTiming, mean } from '../lib/incidentTiming'
+import { useVillageEvents } from '../lib/villageEvents'
 import type { CaseSummary, Review } from '../types'
+import { findRecorded } from './LiveIncident'
 
 const DAY = 86_400_000
 const WEEK = 7 * DAY
@@ -24,7 +27,7 @@ const ago = (ms: number) => {
   return `${Math.round(m / 1440)}일 전`
 }
 
-/** 사건 기록 상단 현황판: 최근 7일 사건 · 처리 대기 · 평균 복구 시간 · AI와 사람 판단 일치율 */
+/** 사건 기록 상단 현황판: 최근 7일 사건 · 처리 대기 · 감지 후 처리 시간 · AI와 사람 판단 일치율 */
 export function CaseKpis({ cases, statusOf, incidents }: { cases: CaseSummary[] | null; statusOf: (c: CaseSummary) => ApprovalStatus; incidents: LiveIncident[] }) {
   const now = Date.now()
   const week = cases?.filter((c) => now - Date.parse(c.createdAt) < WEEK).length ?? 0
@@ -36,6 +39,11 @@ export function CaseKpis({ cases, statusOf, incidents }: { cases: CaseSummary[] 
   const recovered = incidents.filter((x) => x.clearedAt && now - x.startedAt < 30 * DAY)
   const ongoing = incidents.filter((x) => !x.clearedAt).length
   const avgRecover = recovered.length ? recovered.reduce((a, x) => a + (x.clearedAt! - x.startedAt), 0) / recovered.length : null
+  // AI 파형 판정까지: FRTU 녹화가 있는 사건만 (기록된 시각 기준)
+  const events = useVillageEvents()
+  const aiTimes = incidents.filter((x) => now - x.startedAt < 30 * DAY).map((x) => { const r = findRecorded(x, events); return r ? incidentTiming(x, r).aiMs : null })
+  const avgAi = mean(aiTimes)
+  const aiCount = aiTimes.filter((x) => x != null).length
 
   // 검토가 끝난 사건의 마지막 검토가 AI 결과에 동의했는지
   const reviewedIds = useMemo(() => (cases ?? []).filter((c) => c.stage === 'REVIEWED').slice(0, AGREE_SAMPLE).map((c) => c.id), [cases])
@@ -73,9 +81,9 @@ export function CaseKpis({ cases, statusOf, incidents }: { cases: CaseSummary[] 
         <span className="kpi-chip">{!cases ? '사건 목록을 불러오면 표시' : <>검토 {waitReview} · 승인 {waitApproval}{rejected ? ` · 반려 ${rejected}` : ''}</>}</span>
       </div>
       <div className="kpi">
-        <div className="kpi-top">평균 복구 시간</div>
-        <div className="kpi-value small">{avgRecover != null ? dur(avgRecover) : '—'}</div>
-        <span className="kpi-chip">최근 30일 복구 {recovered.length}건{ongoing ? ` · 진행 중 ${ongoing}` : ''}</span>
+        <div className="kpi-top">감지 → 원인 후보</div>
+        <div className="kpi-value small">즉시</div>
+        <span className="kpi-chip">AI 판정 평균 {aiCount ? fmtDur(avgAi) : '— (녹화 없음)'} · 복구 평균 {avgRecover != null ? dur(avgRecover) : '—'}{ongoing ? ` · 진행 중 ${ongoing}` : ''}</span>
       </div>
       <div className="kpi">
         <div className="kpi-top">AI·담당자 판단 일치</div>

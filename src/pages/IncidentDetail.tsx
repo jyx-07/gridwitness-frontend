@@ -2,6 +2,9 @@ import { Link, useParams } from 'react-router-dom'
 import { getVillageRecordState, retryVillageRecords, useVillagePersistence } from '../api/village'
 import FrtuWaveAnalysis, { similarOf, verdictInfo } from '../components/FrtuWaveAnalysis'
 import { findRecorded, IncidentTrail, StageBar } from '../components/LiveIncident'
+import FiCheckBox from '../components/FiCheckBox'
+import ResponseTiming from '../components/ResponseTiming'
+import { fiCrossCheck } from '../lib/fiCheck'
 import { Badge, Empty, PageHeader } from '../components/ui'
 import { FRTUS } from '../lib/frtu'
 import { FI_SHORT, useLiveIncidents } from '../lib/liveIncident'
@@ -52,6 +55,7 @@ export default function IncidentDetail() {
   const recorded = findRecorded(inc, events)
   const v = recorded?.verdict
   const cmp = compare(inc.cause, v)
+  const fiCheck = fiCrossCheck(inc, recorded)
   const stored = getVillageRecordState(inc.recordId)
   const points = inc.points.map((p) => ({ ...p, v: Number.NaN }))
 
@@ -77,6 +81,7 @@ export default function IncidentDetail() {
       />
 
       <StageBar inc={inc} />
+      <ResponseTiming inc={inc} recorded={recorded} />
       <div className="small muted" style={{ margin: '8px 0 14px' }}>
         이 사건: {stored === 'server' ? '서버 보존 완료' : stored === 'pending' ? '브라우저 보존 · 서버 전송 대기' : '브라우저 저장 실패 · 이 탭에서만 유지'} · 마을 전체 전송 대기 {persistence.pending}건{' '}
         <button type="button" className="chat-link" disabled={persistence.syncing} onClick={() => { void retryVillageRecords() }}>저장 재시도</button>
@@ -99,7 +104,8 @@ export default function IncidentDetail() {
         }
         extraSide={
           <div className="fa-card">
-            <div className="fa-card-head">
+            <FiCheckBox check={fiCheck} />
+            <div className="fa-card-head" style={{ marginTop: 12 }}>
               <strong>판정 비교</strong>
               <Badge tone={cmp.tone === 'ok' ? 'ok' : cmp.tone === 'warn' ? 'warn' : 'neutral'}>{cmp.tone === 'ok' ? '판정 일치' : cmp.tone === 'warn' ? '확인 필요' : '규칙 판정만'}</Badge>
             </div>

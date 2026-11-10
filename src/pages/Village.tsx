@@ -17,7 +17,7 @@ import {
   clearFault,
   FAULT_AT_LED,
   FAULT_LABEL,
-  injectFault,
+  injectFault, injectTransient,
   IOT_CHANNELS,
   lightView,
   setChannel,
@@ -307,6 +307,7 @@ export default function Village() {
                   {FAULT_LABEL[k]}
                 </button>
               ))}
+              <button className="btn" onClick={() => injectTransient(target)} disabled={!mock} title="1.5초 동안 전류가 튀었다가 저절로 돌아와요. 고장표시가 떠도 실제 고장은 아니에요 (FI 오표시 시연)">순간 과전류 (돌입)</button>
               <button className="btn btn-ghost" onClick={() => clearFault(target)} disabled={!mock || !snap.faults[target]}>이 LED 복구</button>
             </div>
           </div>
