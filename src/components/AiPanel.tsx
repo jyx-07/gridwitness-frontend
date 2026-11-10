@@ -4,8 +4,8 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { api } from '../api'
 import { useActor } from '../lib/actor'
 import { CHART } from '../lib/chart'
-import { FI_LABEL, FRTUS, frtuHistory, frtuViews, locateFault, type FrtuId } from '../lib/frtu'
-import { SOURCE_LABEL, STATUS_LABEL, type VillageSnapshot } from '../lib/village'
+import { FRTUS, frtuHistory, frtuViews, locateFault, type FrtuId } from '../lib/frtu'
+import { SOURCE_LABEL, type VillageSnapshot } from '../lib/village'
 import { MODEL_SCOPES, parseCsv, diagnose } from '../lib/waveform'
 import type { AnalysisResult, InputDiagnosis, ModelCountry } from '../types'
 import FaultAnalysis from './FaultAnalysis'
@@ -22,7 +22,7 @@ export function LiveWave({ snap, frtu = 'inlet' }: { snap: VillageSnapshot; frtu
     <>
       <div className="small muted">출처: {SOURCE_LABEL[snap.source]} · 저장된 실측 표본 {data.length}개</div>
       <div className="ai-sub">전류 (mA)</div>
-      <ResponsiveContainer width="100%" height={130}>
+      <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
           <XAxis dataKey="t" type="number" domain={['dataMin', 0]} tick={CHART.tick} axisLine={false} tickLine={false} unit="s" />
@@ -32,7 +32,7 @@ export function LiveWave({ snap, frtu = 'inlet' }: { snap: VillageSnapshot; frtu
         </LineChart>
       </ResponsiveContainer>
       <div className="ai-sub">전압 (V)</div>
-      <ResponsiveContainer width="100%" height={90}>
+      <ResponsiveContainer width="100%" height={140}>
         <LineChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
           <XAxis dataKey="t" type="number" domain={['dataMin', 0]} hide />
@@ -151,7 +151,6 @@ export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: Village
       : frtu === 'inlet'
         ? snap.zones ? '두 INA219 구간 실측 합' : '응답 센서 1개의 전체 실측값'
         : snap.zones ? `${f.def.sensor} 실측` : `${f.def.sensor} 미응답`
-  const alarm = f.fi !== 'NONE' || ['WARNING', 'FAULT', 'OUTAGE'].includes(f.status)
   return (
     <aside className="ai-panel" aria-label="FRTU 요약">
       <div className="ai-head">
@@ -163,17 +162,8 @@ export default function AiPanel({ snap, frtu, onPick, onClose }: { snap: Village
       </div>
       <div className="ai-body">
         <FrtuStrip snap={snap} value={frtu} onPick={onPick} />
-        <span className={`ai-chip ${alarm ? 'alarm' : ''}`}>
-          <Status tone={f.fi !== 'NONE' ? 'err' : NODE_TONE[f.status]} live={alarm}>{STATUS_LABEL[f.status]} · {FI_LABEL[f.fi]}</Status>
-        </span>
         {f.available ? (
-          <>
-            <dl className="ai-kv">
-              <div><dt>전류</dt><dd>{(f.i * 1000).toFixed(1)} mA</dd></div>
-              <div><dt>전압</dt><dd>{f.v.toFixed(2)} V</dd></div>
-            </dl>
-            <LiveWave snap={snap} frtu={frtu} />
-          </>
+          <LiveWave snap={snap} frtu={frtu} />
         ) : (
           <p className="small muted">{f.unavailableReason}</p>
         )}
