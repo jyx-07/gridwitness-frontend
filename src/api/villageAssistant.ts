@@ -23,7 +23,12 @@ export interface VillageAssistantReply {
   status: VillageReply['status']
 }
 
-export async function askVillageAssistant(question: string, snapshot: VillageSnapshot, events: AnalyzedEvent[]): Promise<VillageAssistantReply> {
+export async function askVillageAssistant(
+  question: string,
+  snapshot: VillageSnapshot,
+  events: AnalyzedEvent[],
+  history: { role: 'user' | 'assistant'; content: string }[] = [],
+): Promise<VillageAssistantReply> {
   const response = await apiRequest<VillageReply>('/api/v1/village/assistant/messages', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -32,6 +37,7 @@ export async function askVillageAssistant(question: string, snapshot: VillageSna
       source: snapshot.source,
       captured_at: new Date().toISOString(),
       evidence: buildVillageEvidence(snapshot, events),
+      history: history.slice(-12).map((turn) => ({ ...turn, content: turn.content.slice(0, 2000) })),
     }),
   }, 45_000)
   return { text: response.answer, mode: response.answer_mode === 'llm' ? 'llm' : 'server_rules', model: response.llm_model, fallbackReason: response.fallback_reason, evidence: response.evidence, status: response.status }

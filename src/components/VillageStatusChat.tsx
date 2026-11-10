@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { answer, SUGGESTIONS, type ChatMsg } from '../lib/assistant'
+import { answer, SUGGESTIONS, villageChatHistory, type ChatMsg } from '../lib/assistant'
 import { useVillageEvents } from '../lib/villageEvents'
 import { useVillage } from '../lib/village'
 import { askVillageAssistant } from '../api/villageAssistant'
@@ -53,7 +53,7 @@ export default function VillageStatusChat() {
     setMicMsg(null)
     setPending(true)
     try {
-      const reply = await askVillageAssistant(q, snapshot, events)
+      const reply = await askVillageAssistant(q, snapshot, events, villageChatHistory(msgs))
       const badge = reply.mode === 'llm' ? `서버 LLM${reply.model ? ` · ${reply.model}` : ''}` : '서버 규칙 답변'
       const text = `${reply.text}\n[${badge}]`
       setMsgs((m) => [...m, { role: 'bot', text }])

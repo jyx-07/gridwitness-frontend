@@ -17,7 +17,7 @@ export function buildVillageEvidence(s: VillageSnapshot, events: AnalyzedEvent[]
   const evidence: VillageEvidence[] = []
   const add = (id: string, label: string, value: string) => evidence.push({ id: `village.${id}`, label, value: value.slice(0, 1000) })
   const source = SOURCE_LABEL[s.source]
-  const stale = s.source === 'SERIAL' && (!s.lastPacketAt || now - s.lastPacketAt > 5000)
+  const stale = s.source === 'SERIAL' && s.connected && (!s.lastPacketAt || now - s.lastPacketAt > 5000)
   const available = s.connected && s.status !== 'NO_DATA' && !stale
   add('source', '자료 출처', `${source} · ${DEVICE_INFO[s.source].deviceId}`)
   add('status', '마을 상태', available ? STATUS_LABEL[s.status] : stale ? '오래된 계측 · 최신 값 없음' : '계측 데이터 없음')
@@ -37,7 +37,7 @@ export function buildVillageEvidence(s: VillageSnapshot, events: AnalyzedEvent[]
   for (const [index, item] of events.slice(0, 3).entries()) {
     const e = item.e
     const prefix = `event.${index === 0 ? 'latest' : index + 1}`
-    const eventSource = `${e.source === 'MOCK' ? '시뮬레이터' : '실측 Arduino'} · ${new Date(e.receivedAt).toISOString()}`
+    const eventSource = `${e.source === 'MOCK' ? '시뮬레이터' : e.source === 'SERIAL' ? '실측 Arduino' : '출처 미기록'} · ${new Date(e.receivedAt).toISOString()}`
     const verdict = item.verdict.kind === 'ANSWERED' || item.verdict.kind === 'WITHHELD'
       ? `${item.verdict.kind === 'ANSWERED' ? '판정' : '보류'} ${item.verdict.labelKo} · 점수 ${item.verdict.score.toFixed(2)} (확률 아님)`
       : item.verdict.kind === 'NO_MODEL' ? '분류 모델 없음' : `입력 거부 · ${item.verdict.reasons[0] ?? '사유 없음'}`
@@ -56,7 +56,8 @@ export function buildVillageEvidence(s: VillageSnapshot, events: AnalyzedEvent[]
     const verdict = item.verdict.kind === 'ANSWERED' || item.verdict.kind === 'WITHHELD'
       ? `${item.verdict.kind === 'ANSWERED' ? '판정' : '보류'} ${item.verdict.labelKo} · 점수 ${item.verdict.score.toFixed(2)} (확률 아님)`
       : item.verdict.kind === 'NO_MODEL' ? '분류 모델 없음' : `입력 거부 · ${item.verdict.reasons[0] ?? '사유 없음'}`
-    add(`event.${kind}.summary`, `${kind === 'command' ? '최근 명령 사건' : '최근 자동 감지 사건'} #${e.ev}`, `${e.source === 'MOCK' ? '시뮬레이터' : '실측 Arduino'} · ${new Date(e.receivedAt).toISOString()} · ${e.src === 'cmd' ? `명령 직후 ${e.cmd || '(명령 미기록)'}` : '자동 감지'} · ${verdict} · ${e.i100.length}개 원시 표본 · 채널 ${e.ch.join('')}`)
+    const eventSource = e.source === 'MOCK' ? '시뮬레이터' : e.source === 'SERIAL' ? '실측 Arduino' : '출처 미기록'
+    add(`event.${kind}.summary`, `${kind === 'command' ? '최근 명령 사건' : '최근 자동 감지 사건'} #${e.ev}`, `${eventSource} · ${new Date(e.receivedAt).toISOString()} · ${e.src === 'cmd' ? `명령 직후 ${e.cmd || '(명령 미기록)'}` : '자동 감지'} · ${verdict} · ${e.i100.length}개 원시 표본 · 채널 ${e.ch.join('')}`)
   }
   return evidence.slice(0, 32)
 }
@@ -64,6 +65,13 @@ export function buildVillageEvidence(s: VillageSnapshot, events: AnalyzedEvent[]
 export interface ChatMsg {
   role: 'user' | 'bot'
   text: string
+}
+
+export function villageChatHistory(messages: ChatMsg[]): { role: 'user' | 'assistant'; content: string }[] {
+  return messages.slice(1).slice(-12).map((m) => ({
+    role: m.role === 'bot' ? 'assistant' as const : 'user' as const,
+    content: m.role === 'bot' ? m.text.replace(/\n\[(?:서버 LLM|서버 규칙 답변|브라우저 규칙 답변)[^\]]*\]$/, '') : m.text,
+  })).filter((turn) => turn.content.trim())
 }
 
 export const SUGGESTIONS = ['지금 상태 어때?', '어느 분기가 문제야?', 'FRTU별 전류는?', '왜 이상이야?', '마지막 사건 판정은?']
