@@ -5,6 +5,7 @@ import { DiagnosisBadge } from '../components/Badges'
 import { CaseKpis, RepeatFaults } from '../components/CaseOverview'
 import { IconAnalysis, IconPlus } from '../components/Icons'
 import ModelCardPanel from '../components/ModelCardPanel'
+import { ModelGlance } from '../components/AiExplain'
 import { Badge, Empty, ErrorState, PageHeader, Segmented, TableSkeleton } from '../components/ui'
 import { fmtTime } from '../lib/actor'
 import { API_CHANGED_EVENT } from '../lib/backend'
@@ -115,7 +116,11 @@ export default function CaseList() {
         </div>
       )}
       <div className="section">
-        <ModelCardPanel />
+        <ModelGlance />
+        <details className="fa-details" style={{ marginTop: 10 }}>
+          <summary>자세한 모델 평가 보기 (보류 사례 · 학습에 없던 사건 · 한계)</summary>
+          <ModelCardPanel />
+        </details>
       </div>
     </>
   )
