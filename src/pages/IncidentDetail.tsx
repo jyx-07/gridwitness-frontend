@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getVillageRecordState, retryVillageRecords, useVillagePersistence } from '../api/village'
 import FrtuWaveAnalysis, { similarOf, verdictInfo } from '../components/FrtuWaveAnalysis'
 import { findRecorded, IncidentTrail, StageBar } from '../components/LiveIncident'
+import ResponseTiming from '../components/ResponseTiming'
 import { Badge, Empty, PageHeader } from '../components/ui'
 import { FRTUS } from '../lib/frtu'
 import { FI_SHORT, useLiveIncidents } from '../lib/liveIncident'
@@ -77,6 +78,7 @@ export default function IncidentDetail() {
       />
 
       <StageBar inc={inc} />
+      <ResponseTiming inc={inc} recorded={recorded} />
       <div className="small muted" style={{ margin: '8px 0 14px' }}>
         이 사건: {stored === 'server' ? '서버 보존 완료' : stored === 'pending' ? '브라우저 보존 · 서버 전송 대기' : '브라우저 저장 실패 · 이 탭에서만 유지'} · 마을 전체 전송 대기 {persistence.pending}건{' '}
         <button type="button" className="chat-link" disabled={persistence.syncing} onClick={() => { void retryVillageRecords() }}>저장 재시도</button>
