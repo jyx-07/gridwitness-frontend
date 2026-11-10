@@ -1,3 +1,4 @@
+import { ApprovalBadge } from './ApprovalPanel'
 import { useState } from 'react'
 import { api } from '../api'
 import { getVillageRecordState, retryVillageRecords, useVillagePersistence } from '../api/village'
@@ -6,7 +7,7 @@ import { CHART } from '../lib/chart'
 import { fmtTime } from '../lib/actor'
 import { STATUS_LABEL, THRESHOLDS } from '../lib/village'
 import type { AnyCase, IotCase } from '../types'
-import { DiagnosisBadge, StageBadge, Steps } from './Badges'
+import { DiagnosisBadge, Steps } from './Badges'
 import FrtuWaveAnalysis, { similarOf, verdictInfo } from './FrtuWaveAnalysis'
 import IssueList from './IssueList'
 import { useVillageEvents } from '../lib/villageEvents'
@@ -48,7 +49,7 @@ export default function IotCaseView({ c, onChange }: { c: IotCase; onChange: (c:
             <span className="mono">{c.id}</span>
             <Badge outline>IoT 이상 이벤트</Badge>
             <DiagnosisBadge status={c.diagnosis.status} />
-            <StageBadge stage={c.stage} />
+            <ApprovalBadge c={c} />
             <span className="num">{fmtTime(c.createdAt)}</span>
           </>
         }
